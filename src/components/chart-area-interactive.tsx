@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 
+import type {ChartConfig} from "~/components/ui/chart";
 import { useIsMobile } from "~/hooks/use-mobile"
 import {
   Card,
@@ -13,10 +14,10 @@ import {
   CardTitle,
 } from "~/components/ui/card"
 import {
+  
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
+  ChartTooltipContent
 } from "~/components/ui/chart"
 import {
   Select,

@@ -3,7 +3,7 @@ import { Separator } from "~/components/ui/separator"
 import { SidebarTrigger } from "~/components/ui/sidebar"
 import { ThemeToggle } from "~/components/theme-toggle"
 
-const routeTitles: Record<string, string> = {
+const routeTitles: Partial<Record<string, string>> = {
   "/dashboard/": "Overview",
   "/dashboard/integrations": "Integrations",
   "/dashboard/memories": "Memories",

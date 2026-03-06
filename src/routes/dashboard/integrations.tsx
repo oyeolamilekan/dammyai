@@ -292,7 +292,7 @@ function IntegrationsPage() {
                 </div>
               )}
 
-              {connector.type === 'api_key' && (
+              {(connector.type as string) === 'api_key' && (
                 <div className="space-y-3">
                   <div className="space-y-2">
                     <Label htmlFor="apiKey">API key</Label>

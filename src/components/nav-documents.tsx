@@ -1,12 +1,13 @@
 "use client"
 
 import {
+  
   IconDots,
   IconFolder,
   IconShare3,
-  IconTrash,
-  type Icon,
+  IconTrash
 } from "@tabler/icons-react"
+import type {Icon} from "@tabler/icons-react";
 
 import {
   DropdownMenu,
@@ -28,11 +29,11 @@ import {
 export function NavDocuments({
   items,
 }: {
-  items: {
+  items: Array<{
     name: string
     url: string
     icon: Icon
-  }[]
+  }>
 }) {
   const { isMobile } = useSidebar()
 

@@ -34,7 +34,7 @@ function SoulPage() {
         {soul === undefined ? (
           <div className="space-y-3">
             <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-[240px] w-full rounded-md" />
+            <Skeleton className="h-60 w-full rounded-md" />
             <Skeleton className="h-9 w-16 rounded-md" />
           </div>
         ) : (
@@ -51,7 +51,9 @@ function SoulPage() {
                 void upsertSoul({ systemPrompt: prompt })
                   .then(() => toast.success('Soul updated'))
                   .catch((error) => {
-                    toast.error(error instanceof Error ? error.message : 'Update failed')
+                    toast.error(
+                      error instanceof Error ? error.message : 'Update failed',
+                    )
                   })
               }}
             >
