@@ -37,7 +37,10 @@ const MODELS = [
   { label: 'Kimi K2 Thinking', value: 'moonshotai/kimi-k2-thinking' },
   { label: 'Kimi K2', value: 'moonshotai/kimi-k2' },
   { label: 'Kimi K2 Turbo', value: 'moonshotai/kimi-k2-turbo' },
-  { label: 'Kimi K2 Thinking Turbo', value: 'moonshotai/kimi-k2-thinking-turbo' },
+  {
+    label: 'Kimi K2 Thinking Turbo',
+    value: 'moonshotai/kimi-k2-thinking-turbo',
+  },
 ] as const
 
 const SEARCH_PROVIDERS = [
@@ -66,7 +69,9 @@ function PreferencesPage() {
   const save = async () => {
     try {
       await upsertSoul({
-        systemPrompt: soul?.systemPrompt ?? 'You are a helpful personal assistant. You are friendly, concise, and action-oriented.',
+        systemPrompt:
+          soul?.systemPrompt ??
+          'You are a helpful personal assistant. You are friendly, concise, and action-oriented.',
         modelPreference: model || undefined,
         researchModelPreference: researchModel || undefined,
         searchProvider: searchProvider as 'exa' | 'tavily',
@@ -93,12 +98,17 @@ function PreferencesPage() {
               <select
                 id="model-select"
                 value={model}
-                onChange={(e) => { setModel(e.target.value); setDirty(true) }}
+                onChange={(e) => {
+                  setModel(e.target.value)
+                  setDirty(true)
+                }}
                 className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
               >
                 <option value="">Default (GPT-5 Nano)</option>
                 {MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
                 ))}
               </select>
               <p className="text-muted-foreground text-xs">
@@ -118,20 +128,28 @@ function PreferencesPage() {
             <Skeleton className="h-9 w-full rounded-md" />
           ) : (
             <>
-              <Label htmlFor="research-model-select">Preferred research model</Label>
+              <Label htmlFor="research-model-select">
+                Preferred research model
+              </Label>
               <select
                 id="research-model-select"
                 value={researchModel}
-                onChange={(e) => { setResearchModel(e.target.value); setDirty(true) }}
+                onChange={(e) => {
+                  setResearchModel(e.target.value)
+                  setDirty(true)
+                }}
                 className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
               >
                 <option value="">Same as chat model</option>
                 {MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
                 ))}
               </select>
               <p className="text-muted-foreground text-xs">
-                The model used for deep research. Leave empty to use the chat model.
+                The model used for deep research. Leave empty to use the chat
+                model.
               </p>
             </>
           )}
@@ -151,11 +169,16 @@ function PreferencesPage() {
               <select
                 id="search-select"
                 value={searchProvider}
-                onChange={(e) => { setSearchProvider(e.target.value); setDirty(true) }}
+                onChange={(e) => {
+                  setSearchProvider(e.target.value)
+                  setDirty(true)
+                }}
                 className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
               >
                 {SEARCH_PROVIDERS.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
                 ))}
               </select>
               <p className="text-muted-foreground text-xs">
