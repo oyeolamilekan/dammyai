@@ -1,10 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
 import { useState } from 'react'
+import { Download, Share2, X } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from '~/components/ui/dialog'
 
 export const Route = createFileRoute('/dashboard/research')({
   component: ResearchPage,
@@ -97,42 +103,103 @@ function buildReportDocument(html: string) {
 </html>`
 }
 
-/** Lazy-loads the full report only when the job is expanded. */
-function ReportViewer({ jobId, title }: { jobId: string; title: string }) {
+/** Lazy-loads the full report and displays it in a modal. */
+function ReportModal({
+  jobId,
+  title,
+  lastModified,
+  open,
+  onOpenChange,
+}: {
+  jobId: string
+  title: string
+  lastModified?: number
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const convexApi = api as any
-  const report = useQuery(convexApi.research.getResearchReport, { id: jobId })
-  const [iframeHeight, setIframeHeight] = useState(400)
+  const report = useQuery(convexApi.research.getResearchReport, open ? { id: jobId } : 'skip')
 
-  if (report === undefined) {
-    return <Skeleton className="h-40 w-full rounded-md mt-3" />
-  }
-  if (!report) {
-    return <p className="text-muted-foreground text-xs mt-3">Report not available.</p>
-  }
-
-  const handleLoad = (e: React.SyntheticEvent<HTMLIFrameElement>) => {
-    const doc = e.currentTarget.contentDocument
-    if (doc?.body) {
-      setIframeHeight(doc.body.scrollHeight + 32)
-    }
-  }
+  const formattedDate = lastModified
+    ? `Last modified: ${new Date(lastModified).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', month: 'numeric', day: 'numeric' })}`
+    : undefined
 
   return (
-    <div className="mt-3 space-y-3">
-      <Button variant="outline" size="sm" onClick={() => downloadReport(report, title)}>
-        Save as PDF
-      </Button>
-      <div className="rounded-lg border overflow-hidden bg-zinc-950">
-        <iframe
-          srcDoc={buildReportDocument(report)}
-          title="Research report"
-          className="w-full border-0"
-          style={{ height: iframeHeight, minHeight: 200 }}
-          sandbox="allow-same-origin"
-          onLoad={handleLoad}
-        />
-      </div>
-    </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        className="flex flex-col h-[90vh] w-[95vw] max-w-7xl sm:max-w-7xl p-0 gap-0 overflow-hidden"
+      >
+        {/* Title bar */}
+        <div className="flex items-center justify-between gap-3 border-b px-5 py-3 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-lg shrink-0">📄</span>
+            <div className="min-w-0">
+              <DialogTitle className="truncate text-sm font-semibold">{title}</DialogTitle>
+              {formattedDate && (
+                <p className="text-xs text-muted-foreground">{formattedDate}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            {report && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    navigator.clipboard.writeText(report)
+                  }}
+                  title="Copy report"
+                >
+                  <Share2 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => downloadReport(report, title)}
+                  title="Save as PDF"
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onOpenChange(false)}
+              title="Close"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Report content */}
+        <div className="flex-1 overflow-auto">
+          {report === undefined ? (
+            <div className="p-6 space-y-3">
+              <Skeleton className="h-8 w-3/4 rounded-md" />
+              <Skeleton className="h-4 w-full rounded-md" />
+              <Skeleton className="h-4 w-full rounded-md" />
+              <Skeleton className="h-4 w-2/3 rounded-md" />
+            </div>
+          ) : !report ? (
+            <p className="text-muted-foreground text-sm p-6">Report not available.</p>
+          ) : (
+            <iframe
+              srcDoc={buildReportDocument(report)}
+              title="Research report"
+              className="w-full h-full border-0"
+              sandbox="allow-same-origin"
+            />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -190,7 +257,7 @@ const PAGE_SIZE = 10
 function ResearchPage() {
   const convexApi = api as any
   const jobs = useQuery(convexApi.research.listResearch)
-  const [expandedJob, setExpandedJob] = useState<string | null>(null)
+  const [selectedJob, setSelectedJob] = useState<{ id: string; title: string; lastModified?: number } | null>(null)
   const [stepsVisible, setStepsVisible] = useState<string | null>(null)
   const [page, setPage] = useState(0)
 
@@ -232,7 +299,7 @@ function ResearchPage() {
                   </p>
                 )}
 
-                {job.summary && expandedJob !== job._id && (
+                {job.summary && (
                   <p className="text-muted-foreground text-sm line-clamp-2">{job.summary}</p>
                 )}
 
@@ -246,9 +313,9 @@ function ResearchPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setExpandedJob(expandedJob === job._id ? null : job._id)}
+                        onClick={() => setSelectedJob({ id: job._id, title: job.prompt, lastModified: job._creationTime })}
                       >
-                        {expandedJob === job._id ? 'Hide report' : 'View report'}
+                        View report
                       </Button>
                       {job.checkpoints?.length > 0 && (
                         <button
@@ -264,10 +331,6 @@ function ResearchPage() {
                       <CheckpointTimeline checkpoints={job.checkpoints} />
                     )}
                   </div>
-                )}
-
-                {expandedJob === job._id && (
-                  <ReportViewer jobId={job._id} title={job.prompt} />
                 )}
               </div>
             ))}
@@ -298,6 +361,16 @@ function ResearchPage() {
           )}
         </CardContent>
       </Card>
+
+      {selectedJob && (
+        <ReportModal
+          jobId={selectedJob.id}
+          title={selectedJob.title}
+          lastModified={selectedJob.lastModified}
+          open={!!selectedJob}
+          onOpenChange={(open) => { if (!open) setSelectedJob(null) }}
+        />
+      )}
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { Archive, Brain, Lightbulb, MessageSquare } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent } from '~/components/ui/card'
@@ -106,10 +107,18 @@ function MemoriesPage() {
   return (
     <Tabs defaultValue="core" className="space-y-4">
       <TabsList>
-        <TabsTrigger value="core">Core</TabsTrigger>
-        <TabsTrigger value="facts">Facts</TabsTrigger>
-        <TabsTrigger value="archival">Archival</TabsTrigger>
-        <TabsTrigger value="conversations">Conversations</TabsTrigger>
+        <TabsTrigger value="core">
+          <Brain className="size-4" /> Core
+        </TabsTrigger>
+        <TabsTrigger value="facts">
+          <Lightbulb className="size-4" /> Facts
+        </TabsTrigger>
+        <TabsTrigger value="archival">
+          <Archive className="size-4" /> Archival
+        </TabsTrigger>
+        <TabsTrigger value="conversations">
+          <MessageSquare className="size-4" /> Conversations
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="core">

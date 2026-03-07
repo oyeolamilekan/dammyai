@@ -22,6 +22,7 @@ function applyTheme(theme: Theme) {
   if (typeof document === "undefined") return
   const resolved = theme === "system" ? getSystemTheme() : theme
   document.documentElement.classList.toggle("dark", resolved === "dark")
+  document.documentElement.style.colorScheme = resolved
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
