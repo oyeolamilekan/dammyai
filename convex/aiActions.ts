@@ -2,7 +2,7 @@ import { generateText, stepCountIs, tool } from 'ai'
 import { v } from 'convex/values'
 import { z } from 'zod'
 import { internal } from './_generated/api'
-import { internalAction, type ActionCtx } from './_generated/server'
+import { internalAction } from './_generated/server'
 import {
   createCheckMailTool,
   createManageMailTool,
@@ -22,6 +22,7 @@ import {
 import { createSendTelegramMessageTool } from './tools/telegram'
 import { createWebSearchTool } from './tools/exa'
 import { createTavilySearchTool } from './tools/tavily'
+import type { ActionCtx } from './_generated/server'
 
 const DEFAULT_MODEL = 'openai/gpt-4o-mini'
 const DEFAULT_MEMORY_MODEL = 'openai/gpt-4o-mini'
