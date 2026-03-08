@@ -223,6 +223,11 @@ export const applyTaskExecution = internalMutation({
   },
 })
 
+const TASK_TELEGRAM_INSTRUCTION =
+  '\n\n[SCHEDULED TASK] This prompt is running as an automated scheduled task. ' +
+  'The user is not actively chatting — you MUST send your full response to the user ' +
+  'via the sendTelegramMessage tool so they receive it. Do not skip this step.'
+
 const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
   const task = await ctx.runQuery(internal.tasks.getTaskById, { id })
   if (!task || !task.enabled) {
@@ -232,9 +237,18 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
   const ranAt = now()
   let result: string
   try {
+    const telegramIntegration = await ctx.runQuery(
+      internal.telegramStore.getIntegrationByUserId,
+      { userId: task.userId },
+    )
+    const hasTelegram = !!telegramIntegration?.telegramChatId
+    const prompt = hasTelegram
+      ? task.prompt + TASK_TELEGRAM_INSTRUCTION
+      : task.prompt
+
     result = await executeAIPromptImpl(ctx, {
       userId: task.userId,
-      prompt: task.prompt,
+      prompt,
     })
   } catch (error) {
     result = `Task execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
