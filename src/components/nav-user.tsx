@@ -1,5 +1,5 @@
-import { IconDotsVertical, IconLogout } from '@tabler/icons-react'
-import { useRouter } from '@tanstack/react-router'
+import { IconDotsVertical, IconLogout, IconUserCog } from '@tabler/icons-react'
+import { Link, useRouter } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { authClient, clearSessionCache } from '~/lib/auth-client'
@@ -80,6 +80,12 @@ export function NavUser() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link to="/dashboard/account">
+                <IconUserCog />
+                Account
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
                 clearSessionCache()

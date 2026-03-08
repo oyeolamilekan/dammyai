@@ -9,6 +9,7 @@ import {
   IconSearch,
   IconSettings,
   IconSparkles,
+  IconUserCog,
 } from '@tabler/icons-react'
 
 import { NavMain } from '~/components/nav-main'
@@ -65,6 +66,12 @@ const navMain = [
     title: 'Preferences',
     url: '/dashboard/preferences',
     icon: IconAdjustments,
+    exact: false,
+  },
+  {
+    title: 'Account',
+    url: '/dashboard/account',
+    icon: IconUserCog,
     exact: false,
   },
 ]

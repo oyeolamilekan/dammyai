@@ -19,6 +19,7 @@ import { Route as DashboardResearchRouteImport } from './routes/dashboard/resear
 import { Route as DashboardPreferencesRouteImport } from './routes/dashboard/preferences'
 import { Route as DashboardMemoriesRouteImport } from './routes/dashboard/memories'
 import { Route as DashboardIntegrationsRouteImport } from './routes/dashboard/integrations'
+import { Route as DashboardAccountRouteImport } from './routes/dashboard/account'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -70,11 +71,17 @@ const DashboardIntegrationsRoute = DashboardIntegrationsRouteImport.update({
   path: '/integrations',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardAccountRoute = DashboardAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => DashboardRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
+  '/dashboard/account': typeof DashboardAccountRoute
   '/dashboard/integrations': typeof DashboardIntegrationsRoute
   '/dashboard/memories': typeof DashboardMemoriesRoute
   '/dashboard/preferences': typeof DashboardPreferencesRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/dashboard/account': typeof DashboardAccountRoute
   '/dashboard/integrations': typeof DashboardIntegrationsRoute
   '/dashboard/memories': typeof DashboardMemoriesRoute
   '/dashboard/preferences': typeof DashboardPreferencesRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
+  '/dashboard/account': typeof DashboardAccountRoute
   '/dashboard/integrations': typeof DashboardIntegrationsRoute
   '/dashboard/memories': typeof DashboardMemoriesRoute
   '/dashboard/preferences': typeof DashboardPreferencesRoute
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/login'
+    | '/dashboard/account'
     | '/dashboard/integrations'
     | '/dashboard/memories'
     | '/dashboard/preferences'
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/dashboard/account'
     | '/dashboard/integrations'
     | '/dashboard/memories'
     | '/dashboard/preferences'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/login'
+    | '/dashboard/account'
     | '/dashboard/integrations'
     | '/dashboard/memories'
     | '/dashboard/preferences'
@@ -223,10 +235,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIntegrationsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/account': {
+      id: '/dashboard/account'
+      path: '/account'
+      fullPath: '/dashboard/account'
+      preLoaderRoute: typeof DashboardAccountRouteImport
+      parentRoute: typeof DashboardRoute
+    }
   }
 }
 
 interface DashboardRouteChildren {
+  DashboardAccountRoute: typeof DashboardAccountRoute
   DashboardIntegrationsRoute: typeof DashboardIntegrationsRoute
   DashboardMemoriesRoute: typeof DashboardMemoriesRoute
   DashboardPreferencesRoute: typeof DashboardPreferencesRoute
@@ -237,6 +257,7 @@ interface DashboardRouteChildren {
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardAccountRoute: DashboardAccountRoute,
   DashboardIntegrationsRoute: DashboardIntegrationsRoute,
   DashboardMemoriesRoute: DashboardMemoriesRoute,
   DashboardPreferencesRoute: DashboardPreferencesRoute,
@@ -258,12 +279,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
