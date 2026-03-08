@@ -21,6 +21,7 @@ import type * as lib_env from "../lib/env.js";
 import type * as lib_google from "../lib/google.js";
 import type * as lib_pdfGenerator from "../lib/pdfGenerator.js";
 import type * as lib_session from "../lib/session.js";
+import type * as lib_telegramFormat from "../lib/telegramFormat.js";
 import type * as memories from "../memories.js";
 import type * as oauth_gmail from "../oauth/gmail.js";
 import type * as oauth_googleCalendar from "../oauth/googleCalendar.js";
@@ -36,6 +37,7 @@ import type * as tools_gmail from "../tools/gmail.js";
 import type * as tools_googleCalendar from "../tools/googleCalendar.js";
 import type * as tools_notion from "../tools/notion.js";
 import type * as tools_tavily from "../tools/tavily.js";
+import type * as tools_telegram from "../tools/telegram.js";
 import type * as tools_todoist from "../tools/todoist.js";
 
 import type {
@@ -58,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   "lib/google": typeof lib_google;
   "lib/pdfGenerator": typeof lib_pdfGenerator;
   "lib/session": typeof lib_session;
+  "lib/telegramFormat": typeof lib_telegramFormat;
   memories: typeof memories;
   "oauth/gmail": typeof oauth_gmail;
   "oauth/googleCalendar": typeof oauth_googleCalendar;
@@ -73,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   "tools/googleCalendar": typeof tools_googleCalendar;
   "tools/notion": typeof tools_notion;
   "tools/tavily": typeof tools_tavily;
+  "tools/telegram": typeof tools_telegram;
   "tools/todoist": typeof tools_todoist;
 }>;
 

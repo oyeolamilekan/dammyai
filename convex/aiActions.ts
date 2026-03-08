@@ -2,7 +2,7 @@ import { generateText, stepCountIs, tool } from 'ai'
 import { v } from 'convex/values'
 import { z } from 'zod'
 import { internal } from './_generated/api'
-import { internalAction } from './_generated/server'
+import { internalAction, type ActionCtx } from './_generated/server'
 import {
   createCheckMailTool,
   createManageMailTool,
@@ -19,9 +19,9 @@ import {
   createSearchNotionTool,
   createUpdateNotionDocumentTool,
 } from './tools/notion'
+import { createSendTelegramMessageTool } from './tools/telegram'
 import { createWebSearchTool } from './tools/exa'
 import { createTavilySearchTool } from './tools/tavily'
-import type { ActionCtx } from './_generated/server'
 
 const DEFAULT_MODEL = 'openai/gpt-4o-mini'
 const DEFAULT_MEMORY_MODEL = 'openai/gpt-4o-mini'
@@ -44,6 +44,7 @@ Short useful facts extracted from prior conversations.
 - Google Calendar: check schedule, schedule calls/meetings, remove events.
 - Todoist: check todos, add/complete/remove tasks.
 - Notion: create pages, update pages, search workspace.
+- Telegram: send messages to the user via their linked Telegram.
 - Web search: search the internet for up-to-date information.
 Use tools directly when they help answer or execute the user's request.
 `.trim()
@@ -383,6 +384,7 @@ const createAgentTools = (
   createNotionDocument: createNotionDocumentTool(ctx, userId),
   updateNotionDocument: createUpdateNotionDocumentTool(ctx, userId),
   searchNotion: createSearchNotionTool(ctx, userId),
+  sendTelegramMessage: createSendTelegramMessageTool(ctx, userId),
   webSearch:
     searchProvider === 'tavily'
       ? createTavilySearchTool()
