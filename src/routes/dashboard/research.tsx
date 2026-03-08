@@ -6,11 +6,7 @@ import { api } from '../../../convex/_generated/api'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from '~/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '~/components/ui/dialog'
 
 export const Route = createFileRoute('/dashboard/research')({
   component: ResearchPage,
@@ -18,13 +14,17 @@ export const Route = createFileRoute('/dashboard/research')({
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+    pending:
+      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
     running: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-    completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+    completed:
+      'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
     failed: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
   }
   return (
-    <span className={`inline-block shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${colors[status] ?? 'bg-gray-100 text-gray-800'}`}>
+    <span
+      className={`inline-block shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${colors[status] ?? 'bg-gray-100 text-gray-800'}`}
+    >
       {status}
     </span>
   )
@@ -118,7 +118,10 @@ function ReportModal({
   onOpenChange: (open: boolean) => void
 }) {
   const convexApi = api as any
-  const report = useQuery(convexApi.research.getResearchReport, open ? { id: jobId } : 'skip')
+  const report = useQuery(
+    convexApi.research.getResearchReport,
+    open ? { id: jobId } : 'skip',
+  )
 
   const formattedDate = lastModified
     ? `Last modified: ${new Date(lastModified).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', month: 'numeric', day: 'numeric' })}`
@@ -135,7 +138,9 @@ function ReportModal({
           <div className="flex items-center gap-3 min-w-0">
             <span className="text-lg shrink-0">📄</span>
             <div className="min-w-0">
-              <DialogTitle className="truncate text-sm font-semibold">{title}</DialogTitle>
+              <DialogTitle className="truncate text-sm font-semibold">
+                {title}
+              </DialogTitle>
               {formattedDate && (
                 <p className="text-xs text-muted-foreground">{formattedDate}</p>
               )}
@@ -188,7 +193,9 @@ function ReportModal({
               <Skeleton className="h-4 w-2/3 rounded-md" />
             </div>
           ) : !report ? (
-            <p className="text-muted-foreground text-sm p-6">Report not available.</p>
+            <p className="text-muted-foreground text-sm p-6">
+              Report not available.
+            </p>
           ) : (
             <iframe
               srcDoc={buildReportDocument(report)}
@@ -219,7 +226,11 @@ const STEP_ICONS: Record<string, string> = {
   done: '✅',
 }
 
-function CheckpointTimeline({ checkpoints }: { checkpoints: Array<Checkpoint> }) {
+function CheckpointTimeline({
+  checkpoints,
+}: {
+  checkpoints: Array<Checkpoint>
+}) {
   if (checkpoints.length === 0) return null
 
   return (
@@ -232,7 +243,7 @@ function CheckpointTimeline({ checkpoints }: { checkpoints: Array<Checkpoint> })
             ) : cp.status === 'error' ? (
               '❌'
             ) : (
-              STEP_ICONS[cp.step] ?? '✓'
+              (STEP_ICONS[cp.step] ?? '✓')
             )}
           </span>
           <span
@@ -257,7 +268,11 @@ const PAGE_SIZE = 10
 function ResearchPage() {
   const convexApi = api as any
   const jobs = useQuery(convexApi.research.listResearch)
-  const [selectedJob, setSelectedJob] = useState<{ id: string; title: string; lastModified?: number } | null>(null)
+  const [selectedJob, setSelectedJob] = useState<{
+    id: string
+    title: string
+    lastModified?: number
+  } | null>(null)
   const [stepsVisible, setStepsVisible] = useState<string | null>(null)
   const [page, setPage] = useState(0)
 
@@ -278,85 +293,105 @@ function ResearchPage() {
               ))}
             </div>
           ) : jobs.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No research jobs yet.</p>
+            <p className="text-muted-foreground text-sm">
+              No research jobs yet.
+            </p>
           ) : (
             <>
-            {paginatedJobs?.map((job: any) => (
-              <div key={job._id} className="rounded-lg border p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="font-medium text-sm leading-snug">{job.prompt}</p>
-                  <StatusBadge status={job.status} />
-                </div>
+              {paginatedJobs?.map((job: any) => (
+                <div key={job._id} className="rounded-lg border p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-medium text-sm leading-snug">
+                      {job.prompt}
+                    </p>
+                    <StatusBadge status={job.status} />
+                  </div>
 
-                {(job.status === 'running' || job.status === 'pending') &&
-                  job.checkpoints?.length > 0 && (
-                    <CheckpointTimeline checkpoints={job.checkpoints} />
-                  )}
-
-                {job.status === 'running' && (!job.checkpoints || job.checkpoints.length === 0) && (
-                  <p className="text-muted-foreground text-xs animate-pulse">
-                    🔍 Deep research in progress — searching the web, analyzing sources...
-                  </p>
-                )}
-
-                {job.summary && (
-                  <p className="text-muted-foreground text-sm line-clamp-2">{job.summary}</p>
-                )}
-
-                {job.error && (
-                  <p className="text-xs text-red-600">❌ {job.error}</p>
-                )}
-
-                {job.hasReport && job.status === 'completed' && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedJob({ id: job._id, title: job.prompt, lastModified: job._creationTime })}
-                      >
-                        View report
-                      </Button>
-                      {job.checkpoints?.length > 0 && (
-                        <button
-                          type="button"
-                          className="text-xs text-muted-foreground cursor-pointer hover:text-foreground"
-                          onClick={() => setStepsVisible(stepsVisible === job._id ? null : job._id)}
-                        >
-                          {stepsVisible === job._id ? '▾' : '▸'} View steps ({job.checkpoints.length})
-                        </button>
-                      )}
-                    </div>
-                    {stepsVisible === job._id && job.checkpoints?.length > 0 && (
+                  {(job.status === 'running' || job.status === 'pending') &&
+                    job.checkpoints?.length > 0 && (
                       <CheckpointTimeline checkpoints={job.checkpoints} />
                     )}
-                  </div>
-                )}
-              </div>
-            ))}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page === 0}
-                  onClick={() => setPage(page - 1)}
-                >
-                  Previous
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  Page {page + 1} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages - 1}
-                  onClick={() => setPage(page + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            )}
+
+                  {job.status === 'running' &&
+                    (!job.checkpoints || job.checkpoints.length === 0) && (
+                      <p className="text-muted-foreground text-xs animate-pulse">
+                        🔍 Deep research in progress — searching the web,
+                        analyzing sources...
+                      </p>
+                    )}
+
+                  {job.summary && (
+                    <p className="text-muted-foreground text-sm line-clamp-2">
+                      {job.summary}
+                    </p>
+                  )}
+
+                  {job.error && (
+                    <p className="text-xs text-red-600">❌ {job.error}</p>
+                  )}
+
+                  {job.hasReport && job.status === 'completed' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setSelectedJob({
+                              id: job._id,
+                              title: job.prompt,
+                              lastModified: job._creationTime,
+                            })
+                          }
+                        >
+                          View report
+                        </Button>
+                        {job.checkpoints?.length > 0 && (
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground cursor-pointer hover:text-foreground"
+                            onClick={() =>
+                              setStepsVisible(
+                                stepsVisible === job._id ? null : job._id,
+                              )
+                            }
+                          >
+                            {stepsVisible === job._id ? '▾' : '▸'} View steps (
+                            {job.checkpoints.length})
+                          </button>
+                        )}
+                      </div>
+                      {stepsVisible === job._id &&
+                        job.checkpoints?.length > 0 && (
+                          <CheckpointTimeline checkpoints={job.checkpoints} />
+                        )}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page === 0}
+                    onClick={() => setPage(page - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Page {page + 1} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages - 1}
+                    onClick={() => setPage(page + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
             </>
           )}
         </CardContent>
@@ -368,7 +403,9 @@ function ResearchPage() {
           title={selectedJob.title}
           lastModified={selectedJob.lastModified}
           open={!!selectedJob}
-          onOpenChange={(open) => { if (!open) setSelectedJob(null) }}
+          onOpenChange={(open) => {
+            if (!open) setSelectedJob(null)
+          }}
         />
       )}
     </div>

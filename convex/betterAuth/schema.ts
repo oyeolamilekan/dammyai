@@ -1,5 +1,5 @@
-import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
+import { defineSchema, defineTable } from 'convex/server'
+import { v } from 'convex/values'
 
 export const tables = {
   user: defineTable({
@@ -17,11 +17,11 @@ export const tables = {
     phoneNumberVerified: v.optional(v.union(v.null(), v.boolean())),
     userId: v.optional(v.union(v.null(), v.string())),
   })
-    .index("email_name", ["email", "name"])
-    .index("name", ["name"])
-    .index("userId", ["userId"])
-    .index("username", ["username"])
-    .index("phoneNumber", ["phoneNumber"]),
+    .index('email_name', ['email', 'name'])
+    .index('name', ['name'])
+    .index('userId', ['userId'])
+    .index('username', ['username'])
+    .index('phoneNumber', ['phoneNumber']),
   session: defineTable({
     expiresAt: v.number(),
     token: v.string(),
@@ -31,10 +31,10 @@ export const tables = {
     userAgent: v.optional(v.union(v.null(), v.string())),
     userId: v.string(),
   })
-    .index("expiresAt", ["expiresAt"])
-    .index("expiresAt_userId", ["expiresAt", "userId"])
-    .index("token", ["token"])
-    .index("userId", ["userId"]),
+    .index('expiresAt', ['expiresAt'])
+    .index('expiresAt_userId', ['expiresAt', 'userId'])
+    .index('token', ['token'])
+    .index('userId', ['userId']),
   account: defineTable({
     accountId: v.string(),
     providerId: v.string(),
@@ -49,10 +49,10 @@ export const tables = {
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("accountId", ["accountId"])
-    .index("accountId_providerId", ["accountId", "providerId"])
-    .index("providerId_userId", ["providerId", "userId"])
-    .index("userId", ["userId"]),
+    .index('accountId', ['accountId'])
+    .index('accountId_providerId', ['accountId', 'providerId'])
+    .index('providerId_userId', ['providerId', 'userId'])
+    .index('userId', ['userId']),
   verification: defineTable({
     identifier: v.string(),
     value: v.string(),
@@ -60,13 +60,13 @@ export const tables = {
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("expiresAt", ["expiresAt"])
-    .index("identifier", ["identifier"]),
+    .index('expiresAt', ['expiresAt'])
+    .index('identifier', ['identifier']),
   twoFactor: defineTable({
     secret: v.string(),
     backupCodes: v.string(),
     userId: v.string(),
-  }).index("userId", ["userId"]),
+  }).index('userId', ['userId']),
   passkey: defineTable({
     name: v.optional(v.union(v.null(), v.string())),
     publicKey: v.string(),
@@ -79,8 +79,8 @@ export const tables = {
     createdAt: v.optional(v.union(v.null(), v.number())),
     aaguid: v.optional(v.union(v.null(), v.string())),
   })
-    .index("credentialID", ["credentialID"])
-    .index("userId", ["userId"]),
+    .index('credentialID', ['credentialID'])
+    .index('userId', ['userId']),
   oauthApplication: defineTable({
     name: v.optional(v.union(v.null(), v.string())),
     icon: v.optional(v.union(v.null(), v.string())),
@@ -94,8 +94,8 @@ export const tables = {
     createdAt: v.optional(v.union(v.null(), v.number())),
     updatedAt: v.optional(v.union(v.null(), v.number())),
   })
-    .index("clientId", ["clientId"])
-    .index("userId", ["userId"]),
+    .index('clientId', ['clientId'])
+    .index('userId', ['userId']),
   oauthAccessToken: defineTable({
     accessToken: v.optional(v.union(v.null(), v.string())),
     refreshToken: v.optional(v.union(v.null(), v.string())),
@@ -107,10 +107,10 @@ export const tables = {
     createdAt: v.optional(v.union(v.null(), v.number())),
     updatedAt: v.optional(v.union(v.null(), v.number())),
   })
-    .index("accessToken", ["accessToken"])
-    .index("refreshToken", ["refreshToken"])
-    .index("clientId", ["clientId"])
-    .index("userId", ["userId"]),
+    .index('accessToken', ['accessToken'])
+    .index('refreshToken', ['refreshToken'])
+    .index('clientId', ['clientId'])
+    .index('userId', ['userId']),
   oauthConsent: defineTable({
     clientId: v.optional(v.union(v.null(), v.string())),
     userId: v.optional(v.union(v.null(), v.string())),
@@ -119,8 +119,8 @@ export const tables = {
     updatedAt: v.optional(v.union(v.null(), v.number())),
     consentGiven: v.optional(v.union(v.null(), v.boolean())),
   })
-    .index("clientId_userId", ["clientId", "userId"])
-    .index("userId", ["userId"]),
+    .index('clientId_userId', ['clientId', 'userId'])
+    .index('userId', ['userId']),
   jwks: defineTable({
     publicKey: v.string(),
     privateKey: v.string(),
@@ -130,9 +130,9 @@ export const tables = {
     key: v.optional(v.union(v.null(), v.string())),
     count: v.optional(v.union(v.null(), v.number())),
     lastRequest: v.optional(v.union(v.null(), v.number())),
-  }).index("key", ["key"]),
-};
+  }).index('key', ['key']),
+}
 
-const schema = defineSchema(tables);
+const schema = defineSchema(tables)
 
-export default schema;
+export default schema

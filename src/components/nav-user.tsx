@@ -1,16 +1,10 @@
-import {
-  IconDotsVertical,
-  IconLogout,
-} from "@tabler/icons-react"
-import { useRouter } from "@tanstack/react-router"
-import { useQuery } from "convex/react"
-import { api } from "../../convex/_generated/api"
-import { authClient, clearSessionCache } from "~/lib/auth-client"
+import { IconDotsVertical, IconLogout } from '@tabler/icons-react'
+import { useRouter } from '@tanstack/react-router'
+import { useQuery } from 'convex/react'
+import { api } from '../../convex/_generated/api'
+import { authClient, clearSessionCache } from '~/lib/auth-client'
 
-import {
-  Avatar,
-  AvatarFallback,
-} from "~/components/ui/avatar"
+import { Avatar, AvatarFallback } from '~/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,13 +12,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu"
+} from '~/components/ui/dropdown-menu'
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "~/components/ui/sidebar"
+} from '~/components/ui/sidebar'
 
 export function NavUser() {
   const { isMobile } = useSidebar()
@@ -32,12 +26,12 @@ export function NavUser() {
   const convexApi = api as any
   const user = useQuery(convexApi.auth.getCurrentUser)
 
-  const name = user?.name ?? user?.email ?? "User"
-  const email = user?.email ?? ""
+  const name = user?.name ?? user?.email ?? 'User'
+  const email = user?.email ?? ''
   const initials = name
-    .split(" ")
+    .split(' ')
     .map((s: string) => s[0])
-    .join("")
+    .join('')
     .toUpperCase()
     .slice(0, 2)
 
@@ -51,7 +45,9 @@ export function NavUser() {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                <AvatarFallback className="rounded-lg">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{name}</span>
@@ -64,14 +60,16 @@ export function NavUser() {
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
+            side={isMobile ? 'bottom' : 'right'}
             align="end"
             sideOffset={4}
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                  <AvatarFallback className="rounded-lg">
+                    {initials}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{name}</span>
@@ -86,7 +84,7 @@ export function NavUser() {
               onClick={() => {
                 clearSessionCache()
                 void authClient.signOut().then(() => {
-                  void router.navigate({ to: "/login" })
+                  void router.navigate({ to: '/login' })
                 })
               }}
             >

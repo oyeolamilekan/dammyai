@@ -173,7 +173,11 @@ const formatToolOutput = (value: unknown) => {
   }
 }
 
-const createAgentTools = (ctx: AILikeCtx, userId: string, searchProvider?: string) => ({
+const createAgentTools = (
+  ctx: AILikeCtx,
+  userId: string,
+  searchProvider?: string,
+) => ({
   saveCoreMemory: tool({
     description: 'Save or update a core memory key/value pair.',
     inputSchema: z.object({
@@ -255,8 +259,20 @@ const createAgentTools = (ctx: AILikeCtx, userId: string, searchProvider?: strin
     inputSchema: z.object({
       prompt: z.string().min(1).describe('What the task should do'),
       type: z.enum(['one_off', 'recurring']),
-      runAtIso: z.string().optional().describe('ISO 8601 datetime for when to run, e.g. "2026-03-05T09:00:00Z". Required for one_off. Optional for recurring (sets first run time).'),
-      intervalMinutes: z.number().int().min(1).optional().describe('Repeat interval in minutes. Required for recurring. E.g. 60 = hourly, 1440 = daily, 10080 = weekly.'),
+      runAtIso: z
+        .string()
+        .optional()
+        .describe(
+          'ISO 8601 datetime for when to run, e.g. "2026-03-05T09:00:00Z". Required for one_off. Optional for recurring (sets first run time).',
+        ),
+      intervalMinutes: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .describe(
+          'Repeat interval in minutes. Required for recurring. E.g. 60 = hourly, 1440 = daily, 10080 = weekly.',
+        ),
     }),
     execute: async ({ prompt, type, runAtIso, intervalMinutes }) => {
       const runAt = runAtIso ? new Date(runAtIso).getTime() : undefined
@@ -367,7 +383,10 @@ const createAgentTools = (ctx: AILikeCtx, userId: string, searchProvider?: strin
   createNotionDocument: createNotionDocumentTool(ctx, userId),
   updateNotionDocument: createUpdateNotionDocumentTool(ctx, userId),
   searchNotion: createSearchNotionTool(ctx, userId),
-  webSearch: searchProvider === 'tavily' ? createTavilySearchTool() : createWebSearchTool(),
+  webSearch:
+    searchProvider === 'tavily'
+      ? createTavilySearchTool()
+      : createWebSearchTool(),
 })
 
 export const generateAssistantReplyImpl = async (args: {

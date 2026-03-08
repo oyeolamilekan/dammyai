@@ -1,37 +1,37 @@
-import { Output, generateText } from "ai";
-import { z } from "zod";
-import { getOptionalEnv } from "./env";
+import { Output, generateText } from 'ai'
+import { z } from 'zod'
+import { getOptionalEnv } from './env'
 
 const getModelId = (override?: string) => {
   if (override?.trim()) {
-    const v = override.trim();
-    return v.includes("/") ? v : `openai/${v}`;
+    const v = override.trim()
+    return v.includes('/') ? v : `openai/${v}`
   }
   const raw =
-    getOptionalEnv("AI_GATEWAY_MODEL") ??
-    getOptionalEnv("OPENAI_MODEL") ??
-    "openai/gpt-5-mini";
-  return raw.includes("/") ? raw : `openai/${raw}`;
-};
+    getOptionalEnv('AI_GATEWAY_MODEL') ??
+    getOptionalEnv('OPENAI_MODEL') ??
+    'openai/gpt-5-mini'
+  return raw.includes('/') ? raw : `openai/${raw}`
+}
 
 type Learning = {
-  learning: string;
-  followUpQuestions: Array<string>;
-};
+  learning: string
+  followUpQuestions: Array<string>
+}
 
 type SearchResult = {
-  title: string;
-  url: string;
-  content: string;
-};
+  title: string
+  url: string
+  content: string
+}
 
 type Research = {
-  query: string;
-  queries: Array<string>;
-  searchResults: Array<SearchResult>;
-  learnings: Array<Learning>;
-  completedQueries: Array<string>;
-};
+  query: string
+  queries: Array<string>
+  searchResults: Array<SearchResult>
+  learnings: Array<Learning>
+  completedQueries: Array<string>
+}
 
 function createEmptyResearch(query: string): Research {
   return {
@@ -40,53 +40,53 @@ function createEmptyResearch(query: string): Research {
     searchResults: [],
     learnings: [],
     completedQueries: [],
-  };
+  }
 }
 
 function deduplicateResults(results: Array<SearchResult>): Array<SearchResult> {
-  const seen = new Set<string>();
+  const seen = new Set<string>()
   return results.filter((r) => {
-    if (seen.has(r.url)) return false;
-    seen.add(r.url);
-    return true;
-  });
+    if (seen.has(r.url)) return false
+    seen.add(r.url)
+    return true
+  })
 }
 
 async function searchExa(
   query: string,
   numResults = 5,
 ): Promise<Array<SearchResult>> {
-  const apiKey = getOptionalEnv("EXA_API_KEY");
-  if (!apiKey) return [];
+  const apiKey = getOptionalEnv('EXA_API_KEY')
+  if (!apiKey) return []
 
-  const res = await fetch("https://api.exa.ai/search", {
-    method: "POST",
+  const res = await fetch('https://api.exa.ai/search', {
+    method: 'POST',
     headers: {
-      "x-api-key": apiKey,
-      "Content-Type": "application/json",
+      'x-api-key': apiKey,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       query,
       numResults,
       contents: {
         text: { maxCharacters: 2000 },
-        livecrawl: "fallback",
+        livecrawl: 'fallback',
         livecrawlTimeout: 3000,
       },
     }),
-  });
+  })
 
-  if (!res.ok) return [];
+  if (!res.ok) return []
 
   const data = (await res.json()) as {
-    results?: Array<{ title: string; url: string; text?: string }>;
-  };
+    results?: Array<{ title: string; url: string; text?: string }>
+  }
 
   return (data.results ?? []).map((r) => ({
     title: r.title,
     url: r.url,
-    content: r.text ?? "",
-  }));
+    content: r.text ?? '',
+  }))
 }
 
 /** Run searches for multiple queries concurrently and return flat results. */
@@ -96,8 +96,8 @@ async function searchParallel(
 ): Promise<Array<SearchResult>> {
   const settled = await Promise.allSettled(
     queries.map((q) => searchExa(q, numResults)),
-  );
-  return settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+  )
+  return settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
 }
 
 async function generateSearchQueries(
@@ -107,8 +107,8 @@ async function generateSearchQueries(
 ): Promise<Array<string>> {
   const learningCtx =
     existingLearnings && existingLearnings.length > 0
-      ? `\n\nKnown findings so far (generate queries that go DEEPER, not repeat these):\n${existingLearnings.slice(0, 8).join("\n")}`
-      : "";
+      ? `\n\nKnown findings so far (generate queries that go DEEPER, not repeat these):\n${existingLearnings.slice(0, 8).join('\n')}`
+      : ''
   try {
     const result = await generateText({
       model: getModelId(_researchModelOverride),
@@ -118,11 +118,11 @@ async function generateSearchQueries(
           queries: z.array(z.string()).min(1).max(n),
         }),
       }),
-    });
-    const queries = result.output.queries;
-    return queries.length > 0 ? queries : [query];
+    })
+    const queries = result.output.queries
+    return queries.length > 0 ? queries : [query]
   } catch {
-    return [query];
+    return [query]
   }
 }
 
@@ -130,14 +130,14 @@ async function extractLearnings(
   query: string,
   searchResults: Array<SearchResult>,
 ): Promise<Array<Learning>> {
-  if (searchResults.length === 0) return [];
+  if (searchResults.length === 0) return []
 
   const content = searchResults
     .map(
       (r, i) =>
         `Source ${i + 1}: ${r.title}\nURL: ${r.url}\nContent: ${r.content.slice(0, 800)}`,
     )
-    .join("\n\n");
+    .join('\n\n')
 
   try {
     const result = await generateText({
@@ -147,19 +147,19 @@ async function extractLearnings(
         schema: z.object({
           learnings: z.array(
             z.object({
-              learning: z.string().describe("A specific finding or fact"),
+              learning: z.string().describe('A specific finding or fact'),
               followUpQuestions: z
                 .array(z.string())
                 .max(2)
-                .describe("1-2 questions that arise from this learning"),
+                .describe('1-2 questions that arise from this learning'),
             }),
           ),
         }),
       }),
-    });
-    return result.output.learnings;
+    })
+    return result.output.learnings
   } catch {
-    return [];
+    return []
   }
 }
 
@@ -170,11 +170,11 @@ async function extractLearnings(
 export type ProgressCallback = (
   step: string,
   message: string,
-  status: "running" | "done" | "error",
-) => Promise<void>;
+  status: 'running' | 'done' | 'error',
+) => Promise<void>
 
 // Thread model preference through deep research without changing every function signature
-let _researchModelOverride: string | undefined;
+let _researchModelOverride: string | undefined
 
 export async function deepResearch(
   query: string,
@@ -183,75 +183,130 @@ export async function deepResearch(
   modelPreference?: string,
   onProgress?: ProgressCallback,
 ): Promise<{ summary: string; report: string }> {
-  _researchModelOverride = modelPreference;
-  const research = createEmptyResearch(query);
+  _researchModelOverride = modelPreference
+  const research = createEmptyResearch(query)
 
-  const progress = onProgress ?? (async () => {});
+  const progress = onProgress ?? (async () => {})
 
   // Round 1: generate queries, then search ALL in parallel
-  await progress("generating_queries", "Generating initial search queries…", "running");
-  const queries = await generateSearchQueries(query, breadth);
-  research.queries.push(...queries);
-  await progress("generating_queries", `Generated ${queries.length} search queries`, "done");
+  await progress(
+    'generating_queries',
+    'Generating initial search queries…',
+    'running',
+  )
+  const queries = await generateSearchQueries(query, breadth)
+  research.queries.push(...queries)
+  await progress(
+    'generating_queries',
+    `Generated ${queries.length} search queries`,
+    'done',
+  )
 
-  await progress("searching", `Searching the web — round 1 of ${depth}…`, "running");
-  const round1Results = deduplicateResults(await searchParallel(queries, 5));
-  research.searchResults.push(...round1Results);
-  await progress("searching", `Found ${round1Results.length} sources in round 1`, "done");
+  await progress(
+    'searching',
+    `Searching the web — round 1 of ${depth}…`,
+    'running',
+  )
+  const round1Results = deduplicateResults(await searchParallel(queries, 5))
+  research.searchResults.push(...round1Results)
+  await progress(
+    'searching',
+    `Found ${round1Results.length} sources in round 1`,
+    'done',
+  )
 
-  await progress("extracting_learnings", `Analyzing sources — round 1 of ${depth}…`, "running");
-  const round1Learnings = await extractLearnings(query, round1Results);
-  research.learnings.push(...round1Learnings);
-  research.completedQueries.push(...queries);
-  await progress("extracting_learnings", `Extracted ${round1Learnings.length} learnings from round 1`, "done");
+  await progress(
+    'extracting_learnings',
+    `Analyzing sources — round 1 of ${depth}…`,
+    'running',
+  )
+  const round1Learnings = await extractLearnings(query, round1Results)
+  research.learnings.push(...round1Learnings)
+  research.completedQueries.push(...queries)
+  await progress(
+    'extracting_learnings',
+    `Extracted ${round1Learnings.length} learnings from round 1`,
+    'done',
+  )
 
   // Follow-up rounds: use learnings to generate deeper queries
   for (let d = 1; d < depth; d++) {
-    const round = d + 1;
-    const existingLearnings = research.learnings.map((l) => l.learning);
+    const round = d + 1
+    const existingLearnings = research.learnings.map((l) => l.learning)
 
-    await progress("generating_queries", `Generating deeper queries — round ${round} of ${depth}…`, "running");
+    await progress(
+      'generating_queries',
+      `Generating deeper queries — round ${round} of ${depth}…`,
+      'running',
+    )
     const followUpQueries = await generateSearchQueries(
       query,
       breadth,
       existingLearnings,
-    );
+    )
 
     // Skip queries we've already run
     const newQueries = followUpQueries.filter(
       (q) => !research.completedQueries.includes(q),
-    );
+    )
     if (newQueries.length === 0) {
-      await progress("generating_queries", `No new queries for round ${round} — skipping`, "done");
-      break;
+      await progress(
+        'generating_queries',
+        `No new queries for round ${round} — skipping`,
+        'done',
+      )
+      break
     }
-    await progress("generating_queries", `Generated ${newQueries.length} follow-up queries`, "done");
+    await progress(
+      'generating_queries',
+      `Generated ${newQueries.length} follow-up queries`,
+      'done',
+    )
 
-    await progress("searching", `Searching the web — round ${round} of ${depth}…`, "running");
-    const roundResults = deduplicateResults(
-      await searchParallel(newQueries, 3),
-    );
+    await progress(
+      'searching',
+      `Searching the web — round ${round} of ${depth}…`,
+      'running',
+    )
+    const roundResults = deduplicateResults(await searchParallel(newQueries, 3))
     // Remove URLs we already have
-    const existingUrls = new Set(research.searchResults.map((r) => r.url));
-    const freshResults = roundResults.filter((r) => !existingUrls.has(r.url));
-    research.searchResults.push(...freshResults);
-    await progress("searching", `Found ${freshResults.length} new sources in round ${round}`, "done");
+    const existingUrls = new Set(research.searchResults.map((r) => r.url))
+    const freshResults = roundResults.filter((r) => !existingUrls.has(r.url))
+    research.searchResults.push(...freshResults)
+    await progress(
+      'searching',
+      `Found ${freshResults.length} new sources in round ${round}`,
+      'done',
+    )
 
-    await progress("extracting_learnings", `Analyzing sources — round ${round} of ${depth}…`, "running");
-    const roundLearnings = await extractLearnings(query, freshResults);
-    research.learnings.push(...roundLearnings);
-    research.completedQueries.push(...newQueries);
-    await progress("extracting_learnings", `Extracted ${roundLearnings.length} learnings from round ${round}`, "done");
+    await progress(
+      'extracting_learnings',
+      `Analyzing sources — round ${round} of ${depth}…`,
+      'running',
+    )
+    const roundLearnings = await extractLearnings(query, freshResults)
+    research.learnings.push(...roundLearnings)
+    research.completedQueries.push(...newQueries)
+    await progress(
+      'extracting_learnings',
+      `Extracted ${roundLearnings.length} learnings from round ${round}`,
+      'done',
+    )
   }
 
-  await progress("generating_report", "Writing comprehensive research report…", "running");
-  const result = await generateReport(research);
-  await progress("generating_report", "Report generated successfully", "done");
+  await progress(
+    'generating_report',
+    'Writing comprehensive research report…',
+    'running',
+  )
+  const result = await generateReport(research)
+  await progress('generating_report', 'Report generated successfully', 'done')
 
-  return result;
+  return result
 }
 
-const buildReportSystemPrompt = () => `
+const buildReportSystemPrompt = () =>
+  `
 You are an expert research analyst. Today's date is ${new Date().toISOString()}.
 
 ## Audience & Tone
@@ -272,23 +327,22 @@ You are an expert research analyst. Today's date is ${new Date().toISOString()}.
 - Output clean, semantic HTML (<h1>, <h2>, <p>, <ul>, <blockquote>, etc.).
 - Start directly with HTML tags — no markdown fences, no backticks wrapper.
 - The report should read like an authoritative, professional analysis.
-`.trim();
+`.trim()
 
 async function generateReport(
   research: Research,
 ): Promise<{ summary: string; report: string }> {
   // Deduplicate learnings by content similarity
   const uniqueLearnings = research.learnings.filter(
-    (l, i, arr) =>
-      arr.findIndex((x) => x.learning === l.learning) === i,
-  );
+    (l, i, arr) => arr.findIndex((x) => x.learning === l.learning) === i,
+  )
 
   // Deduplicate sources by URL
-  const uniqueSources = deduplicateResults(research.searchResults);
+  const uniqueSources = deduplicateResults(research.searchResults)
 
   // Cap context to avoid excessive token usage
-  const trimmedLearnings = uniqueLearnings.slice(0, 30);
-  const trimmedSources = uniqueSources.slice(0, 20);
+  const trimmedLearnings = uniqueLearnings.slice(0, 30)
+  const trimmedSources = uniqueSources.slice(0, 20)
 
   const result = await generateText({
     model: getModelId(_researchModelOverride),
@@ -296,11 +350,8 @@ async function generateReport(
 
 Key Findings and Learnings:
 ${trimmedLearnings
-  .map(
-    (learning, i) =>
-      `${i + 1}. ${learning.learning}`,
-  )
-  .join("\n")}
+  .map((learning, i) => `${i + 1}. ${learning.learning}`)
+  .join('\n')}
 
 Sources Used:
 ${trimmedSources
@@ -309,7 +360,7 @@ ${trimmedSources
       `${i + 1}. ${source.title} — ${source.url}
    ${source.content.substring(0, 300)}`,
   )
-  .join("\n\n")}
+  .join('\n\n')}
 
 Generate a comprehensive research report based on this research data. Output clean HTML. Do NOT use markdown or code fences.
 Also provide a very short plain-text summary (1–2 sentences) of the key takeaway.`,
@@ -319,16 +370,16 @@ Also provide a very short plain-text summary (1–2 sentences) of the key takeaw
         summary: z
           .string()
           .describe(
-            "A very short 1–2 sentence plain-text summary of the report",
+            'A very short 1–2 sentence plain-text summary of the report',
           ),
         report: z
           .string()
-          .describe("The full comprehensive research report in clean HTML"),
+          .describe('The full comprehensive research report in clean HTML'),
       }),
     }),
-  });
+  })
 
-  return result.output;
+  return result.output
 }
 
 /**
@@ -390,5 +441,5 @@ export function wrapReportHtml(title: string, content: string): string {
     <div class="date">Generated on ${new Date().toLocaleDateString()}</div>
     ${content}
 </body>
-</html>`;
+</html>`
 }

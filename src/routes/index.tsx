@@ -17,8 +17,9 @@ function Home() {
     <main className="mx-auto flex min-h-svh w-full max-w-3xl flex-col justify-center gap-6 px-6">
       <h1 className="text-4xl font-bold tracking-tight">DammyAI</h1>
       <p className="text-muted-foreground">
-        Convex + Better Auth migration in progress. Core dashboard modules are now
-        scaffolded for integrations, memories, soul settings, tasks, and research.
+        Convex + Better Auth migration in progress. Core dashboard modules are
+        now scaffolded for integrations, memories, soul settings, tasks, and
+        research.
       </p>
       <div className="flex flex-wrap gap-3">
         {isAuthenticated ? (

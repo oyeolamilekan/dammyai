@@ -58,7 +58,8 @@ function CreateTaskDialog() {
       await createTask({
         prompt,
         type,
-        intervalMs: type === 'recurring' ? intervalValue * intervalUnit : undefined,
+        intervalMs:
+          type === 'recurring' ? intervalValue * intervalUnit : undefined,
         runAt: runAtMs && !Number.isNaN(runAtMs) ? runAtMs : undefined,
       })
       toast.success('Task created')
@@ -93,7 +94,9 @@ function CreateTaskDialog() {
             <select
               id="task-type"
               value={type}
-              onChange={(e) => setType(e.target.value as 'one_off' | 'recurring')}
+              onChange={(e) =>
+                setType(e.target.value as 'one_off' | 'recurring')
+              }
               className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
             >
               <option value="recurring">Recurring</option>
@@ -109,7 +112,9 @@ function CreateTaskDialog() {
                     type="number"
                     min={1}
                     value={intervalValue}
-                    onChange={(e) => setIntervalValue(Math.max(1, Number(e.target.value)))}
+                    onChange={(e) =>
+                      setIntervalValue(Math.max(1, Number(e.target.value)))
+                    }
                     className="w-24"
                   />
                   <select
@@ -118,7 +123,9 @@ function CreateTaskDialog() {
                     className="border-input bg-background h-9 flex-1 rounded-md border px-3 text-sm"
                   >
                     {UNITS.map((u) => (
-                      <option key={u.ms} value={u.ms}>{u.label}</option>
+                      <option key={u.ms} value={u.ms}>
+                        {u.label}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -131,7 +138,9 @@ function CreateTaskDialog() {
                   value={runAt}
                   onChange={(e) => setRunAt(e.target.value)}
                 />
-                <p className="text-muted-foreground text-xs">Leave empty to start after the first interval</p>
+                <p className="text-muted-foreground text-xs">
+                  Leave empty to start after the first interval
+                </p>
               </div>
             </>
           ) : (
@@ -145,7 +154,11 @@ function CreateTaskDialog() {
               />
             </div>
           )}
-          <Button className="w-full" disabled={!prompt.trim()} onClick={() => void submit()}>
+          <Button
+            className="w-full"
+            disabled={!prompt.trim()}
+            onClick={() => void submit()}
+          >
             Create task
           </Button>
         </div>
@@ -184,8 +197,10 @@ function TasksPage() {
                   {task.type === 'recurring' && task.intervalMs
                     ? `every ${formatInterval(task.intervalMs)}`
                     : task.type}
-                  {' • '}{task.enabled ? 'enabled' : 'paused'}
-                  {task.nextRunAt && ` • next: ${new Date(task.nextRunAt).toLocaleString()}`}
+                  {' • '}
+                  {task.enabled ? 'enabled' : 'paused'}
+                  {task.nextRunAt &&
+                    ` • next: ${new Date(task.nextRunAt).toLocaleString()}`}
                 </p>
                 {task.lastResult && (
                   <p className="text-muted-foreground mt-1 text-xs truncate">
@@ -197,8 +212,15 @@ function TasksPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      void updateTask({ id: task.id, enabled: !task.enabled }).catch((error) => {
-                        toast.error(error instanceof Error ? error.message : 'Update failed')
+                      void updateTask({
+                        id: task.id,
+                        enabled: !task.enabled,
+                      }).catch((error) => {
+                        toast.error(
+                          error instanceof Error
+                            ? error.message
+                            : 'Update failed',
+                        )
                       })
                     }}
                   >
@@ -209,7 +231,11 @@ function TasksPage() {
                     variant="destructive"
                     onClick={() => {
                       void deleteTask({ id: task.id }).catch((error) => {
-                        toast.error(error instanceof Error ? error.message : 'Delete failed')
+                        toast.error(
+                          error instanceof Error
+                            ? error.message
+                            : 'Delete failed',
+                        )
                       })
                     }}
                   >

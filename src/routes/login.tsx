@@ -5,7 +5,11 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
-import { authClient, clearSessionCache, getCachedSession } from '~/lib/auth-client'
+import {
+  authClient,
+  clearSessionCache,
+  getCachedSession,
+} from '~/lib/auth-client'
 
 type LoginSearch = { redirect?: string }
 
@@ -72,13 +76,19 @@ function LoginPage() {
     <main className="mx-auto flex min-h-svh w-full max-w-md items-center px-6">
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>{mode === 'sign-in' ? 'Sign in' : 'Create account'}</CardTitle>
+          <CardTitle>
+            {mode === 'sign-in' ? 'Sign in' : 'Create account'}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {mode === 'sign-up' ? (
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
           ) : null}
           <div className="space-y-2">

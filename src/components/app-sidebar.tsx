@@ -1,4 +1,4 @@
-import * as React from "react"
+import * as React from 'react'
 import {
   IconAdjustments,
   IconBrain,
@@ -9,11 +9,11 @@ import {
   IconSearch,
   IconSettings,
   IconSparkles,
-} from "@tabler/icons-react"
+} from '@tabler/icons-react'
 
-import { NavMain } from "~/components/nav-main"
-import { NavSecondary } from "~/components/nav-secondary"
-import { NavUser } from "~/components/nav-user"
+import { NavMain } from '~/components/nav-main'
+import { NavSecondary } from '~/components/nav-secondary'
+import { NavUser } from '~/components/nav-user'
 import {
   Sidebar,
   SidebarContent,
@@ -22,48 +22,48 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "~/components/ui/sidebar"
+} from '~/components/ui/sidebar'
 
 const navMain = [
   {
-    title: "Overview",
-    url: "/dashboard",
+    title: 'Overview',
+    url: '/dashboard',
     icon: IconDashboard,
     exact: true,
   },
   {
-    title: "Integrations",
-    url: "/dashboard/integrations",
+    title: 'Integrations',
+    url: '/dashboard/integrations',
     icon: IconPlug,
     exact: false,
   },
   {
-    title: "Memories",
-    url: "/dashboard/memories",
+    title: 'Memories',
+    url: '/dashboard/memories',
     icon: IconBrain,
     exact: false,
   },
   {
-    title: "Soul",
-    url: "/dashboard/souls",
+    title: 'Soul',
+    url: '/dashboard/souls',
     icon: IconSparkles,
     exact: false,
   },
   {
-    title: "Tasks",
-    url: "/dashboard/tasks",
+    title: 'Tasks',
+    url: '/dashboard/tasks',
     icon: IconCalendarEvent,
     exact: false,
   },
   {
-    title: "Research",
-    url: "/dashboard/research",
+    title: 'Research',
+    url: '/dashboard/research',
     icon: IconSearch,
     exact: false,
   },
   {
-    title: "Preferences",
-    url: "/dashboard/preferences",
+    title: 'Preferences',
+    url: '/dashboard/preferences',
     icon: IconAdjustments,
     exact: false,
   },
@@ -71,8 +71,8 @@ const navMain = [
 
 const navSecondary = [
   {
-    title: "Settings",
-    url: "/dashboard/preferences",
+    title: 'Settings',
+    url: '/dashboard/preferences',
     icon: IconSettings,
   },
 ]

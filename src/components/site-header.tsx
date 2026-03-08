@@ -1,22 +1,22 @@
-import { useMatches } from "@tanstack/react-router"
-import { Separator } from "~/components/ui/separator"
-import { SidebarTrigger } from "~/components/ui/sidebar"
-import { ThemeToggle } from "~/components/theme-toggle"
+import { useMatches } from '@tanstack/react-router'
+import { Separator } from '~/components/ui/separator'
+import { SidebarTrigger } from '~/components/ui/sidebar'
+import { ThemeToggle } from '~/components/theme-toggle'
 
 const routeTitles: Partial<Record<string, string>> = {
-  "/dashboard/": "Overview",
-  "/dashboard/integrations": "Integrations",
-  "/dashboard/memories": "Memories",
-  "/dashboard/souls": "Soul",
-  "/dashboard/tasks": "Tasks",
-  "/dashboard/research": "Research",
-  "/dashboard/preferences": "Preferences",
+  '/dashboard/': 'Overview',
+  '/dashboard/integrations': 'Integrations',
+  '/dashboard/memories': 'Memories',
+  '/dashboard/souls': 'Soul',
+  '/dashboard/tasks': 'Tasks',
+  '/dashboard/research': 'Research',
+  '/dashboard/preferences': 'Preferences',
 }
 
 export function SiteHeader() {
   const matches = useMatches()
   const lastMatch = matches[matches.length - 1]
-  const title = routeTitles[lastMatch.fullPath] ?? "Dashboard"
+  const title = routeTitles[lastMatch.fullPath] ?? 'Dashboard'
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
