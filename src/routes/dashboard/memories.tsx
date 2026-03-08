@@ -2,8 +2,18 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Archive, Brain, Lightbulb, MessageSquare } from 'lucide-react'
+import {
+  Archive,
+  Bot,
+  Brain,
+  Lightbulb,
+  MessageSquare,
+  User,
+  Wrench,
+} from 'lucide-react'
+import Markdown from 'react-markdown'
 import { api } from '../../../convex/_generated/api'
+import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
@@ -286,14 +296,67 @@ function MemoriesPage() {
                 No conversations yet.
               </p>
             ) : (
-              (conversations?.items ?? []).map((item: any) => (
-                <div key={item.id} className="rounded-md border p-2">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">
-                    {item.role}
-                  </p>
-                  <p className="text-sm">{item.content}</p>
-                </div>
-              ))
+              (conversations?.items ?? []).map((item: any) => {
+                const isUser = item.role === 'user'
+                const isAssistant = item.role === 'assistant'
+                const isTool = item.role === 'tool'
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`rounded-md border p-3 ${
+                      isUser
+                        ? 'border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40'
+                        : isAssistant
+                          ? 'border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/40'
+                          : 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40'
+                    }`}
+                  >
+                    <div className="mb-1 flex items-center gap-2">
+                      {isUser && (
+                        <User className="size-3.5 text-blue-600 dark:text-blue-400" />
+                      )}
+                      {isAssistant && (
+                        <Bot className="size-3.5 text-green-600 dark:text-green-400" />
+                      )}
+                      {isTool && (
+                        <Wrench className="size-3.5 text-amber-600 dark:text-amber-400" />
+                      )}
+                      <span
+                        className={`text-xs font-medium uppercase ${
+                          isUser
+                            ? 'text-blue-600 dark:text-blue-400'
+                            : isAssistant
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-amber-600 dark:text-amber-400'
+                        }`}
+                      >
+                        {item.role}
+                      </span>
+                      {isTool && item.toolName && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          {item.toolName}
+                        </Badge>
+                      )}
+                      <span className="ml-auto text-[10px] text-muted-foreground">
+                        {new Date(item.createdAt).toLocaleString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    {isAssistant ? (
+                      <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+                        <Markdown>{item.content}</Markdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm break-words">{item.content}</p>
+                    )}
+                  </div>
+                )
+              })
             )}
             {conversations && (
               <Pagination
