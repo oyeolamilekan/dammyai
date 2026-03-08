@@ -8,9 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Label } from '~/components/ui/label'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Textarea } from '~/components/ui/textarea'
+import { requireAuth } from '~/lib/require-auth'
 
 export const Route = createFileRoute('/dashboard/souls')({
   component: SoulPage,
+  beforeLoad: requireAuth,
 })
 
 function SoulPage() {

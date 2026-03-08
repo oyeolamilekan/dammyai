@@ -7,9 +7,11 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Label } from '~/components/ui/label'
 import { Skeleton } from '~/components/ui/skeleton'
+import { requireAuth } from '~/lib/require-auth'
 
 export const Route = createFileRoute('/dashboard/preferences')({
   component: PreferencesPage,
+  beforeLoad: requireAuth,
 })
 
 const MODELS = [

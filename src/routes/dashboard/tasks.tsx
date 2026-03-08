@@ -16,9 +16,11 @@ import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Textarea } from '~/components/ui/textarea'
+import { requireAuth } from '~/lib/require-auth'
 
 export const Route = createFileRoute('/dashboard/tasks')({
   component: TasksPage,
+  beforeLoad: requireAuth,
 })
 
 const UNITS = [

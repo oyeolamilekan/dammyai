@@ -12,9 +12,11 @@ import {
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { authClient } from '~/lib/auth-client'
+import { requireAuth } from '~/lib/require-auth'
 
 export const Route = createFileRoute('/dashboard/account')({
   component: AccountPage,
+  beforeLoad: requireAuth,
 })
 
 function AccountPage() {

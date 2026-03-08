@@ -20,9 +20,11 @@ import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
+import { requireAuth } from '~/lib/require-auth'
 
 export const Route = createFileRoute('/dashboard/memories')({
   component: MemoriesPage,
+  beforeLoad: requireAuth,
 })
 
 const PAGE_SIZE = 20

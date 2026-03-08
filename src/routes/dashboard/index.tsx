@@ -3,9 +3,11 @@ import { useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
+import { requireAuth } from '~/lib/require-auth'
 
 export const Route = createFileRoute('/dashboard/')({
   component: DashboardHome,
+  beforeLoad: requireAuth,
 })
 
 function StatCard({

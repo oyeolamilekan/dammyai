@@ -11,6 +11,7 @@ import {
 } from '@tabler/icons-react'
 
 import { api } from '../../../convex/_generated/api'
+import { requireAuth } from '~/lib/require-auth'
 import { getCachedSession } from '~/lib/auth-client'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -34,6 +35,7 @@ const oauthProviderPaths: Record<string, string> = {
 
 export const Route = createFileRoute('/dashboard/integrations')({
   component: IntegrationsPage,
+  beforeLoad: requireAuth,
   validateSearch: (search: Record<string, unknown>) => ({
     success: (search.success as string | undefined) ?? undefined,
     error: (search.error as string | undefined) ?? undefined,

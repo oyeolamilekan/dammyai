@@ -7,9 +7,11 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Dialog, DialogContent, DialogTitle } from '~/components/ui/dialog'
+import { requireAuth } from '~/lib/require-auth'
 
 export const Route = createFileRoute('/dashboard/research')({
   component: ResearchPage,
+  beforeLoad: requireAuth,
 })
 
 function StatusBadge({ status }: { status: string }) {

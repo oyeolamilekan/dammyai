@@ -1,5 +1,8 @@
-import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
+import { Outlet, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { useQuery } from 'convex/react'
+import { useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
+import { api } from '../../convex/_generated/api'
 import { AppSidebar } from '~/components/app-sidebar'
 import { SiteHeader } from '~/components/site-header'
 import { SidebarInset, SidebarProvider } from '~/components/ui/sidebar'
@@ -21,6 +24,19 @@ export const Route = createFileRoute('/dashboard')({
 })
 
 function DashboardLayout() {
+  const convexApi = api as any
+  const user = useQuery(convexApi.auth.getCurrentUser)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (user === null) {
+      void navigate({ to: '/login' })
+    }
+  }, [user, navigate])
+
+  if (user === undefined) return <DashboardPending />
+  if (user === null) return null
+
   return (
     <SidebarProvider>
       <AppSidebar variant="inset" />
