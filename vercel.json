@@ -1,3 +1,9 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/auth/:path*",
+      "destination": "https://fiery-seal-876.convex.site/api/auth/:path*"
+    }
+  ]
 }
