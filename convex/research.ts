@@ -162,6 +162,10 @@ async function sendResearchToTelegram(
 
     const chatId = telegramIntegration.telegramChatId;
 
+    // Show typing while preparing the summary and PDF
+    const { sendChatAction: sendAction } = await import("./telegram");
+    await sendAction(chatId, "typing");
+
     // Send summary message first
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
@@ -185,6 +189,7 @@ async function sendResearchToTelegram(
     ) as ArrayBuffer;
 
     const fileName = `research-${Date.now()}.pdf`;
+    await sendAction(chatId, "upload_document");
     await sendTelegramDocument(chatId, buffer, fileName, "📄 Full research report");
   } catch (err) {
     console.error("Failed to send research to Telegram:", err);

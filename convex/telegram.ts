@@ -33,6 +33,28 @@ const sendTelegramMessage = async (chatId: string, text: string) => {
   });
 };
 
+export const sendChatAction = async (
+  chatId: string,
+  action: "typing" | "upload_document" = "typing",
+) => {
+  const env = getEnv();
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+  await fetch(`https://api.telegram.org/bot${token}/sendChatAction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, action }),
+  });
+};
+
+// Keeps the typing indicator alive for long-running operations.
+// Telegram's typing status expires after ~5s, so we re-send every 4s.
+function keepTyping(chatId: string, action: "typing" | "upload_document" = "typing") {
+  void sendChatAction(chatId, action);
+  const interval = setInterval(() => void sendChatAction(chatId, action), 4_000);
+  return () => clearInterval(interval);
+}
+
 export const sendTelegramDocument = async (
   chatId: string,
   fileBuffer: ArrayBuffer,
@@ -126,11 +148,18 @@ export const webhook = httpAction(async (ctx, request) => {
     return json({ ok: true });
   }
 
-  const reply = await executeAIPromptImpl(ctx, {
-    userId: integration.userId,
-    prompt: text,
-  });
-  await sendTelegramMessage(chatId, reply);
+  const stopTyping = keepTyping(chatId);
+  try {
+    const reply = await executeAIPromptImpl(ctx, {
+      userId: integration.userId,
+      prompt: text,
+    });
+    stopTyping();
+    await sendTelegramMessage(chatId, reply);
+  } catch (error) {
+    stopTyping();
+    await sendTelegramMessage(chatId, "⚠️ Something went wrong. Please try again.");
+  }
   return json({ ok: true });
 });
 
