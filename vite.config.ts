@@ -14,17 +14,15 @@ export default defineConfig(({ mode }) => {
     env.VITE_CONVEX_URL?.replace('.convex.cloud', '.convex.site')
 
   return {
-    server: {
-      port: 3000,
-      proxy: convexSiteUrl
+    nitro: {
+      devProxy: convexSiteUrl
         ? {
-            '/api/auth': {
-              target: convexSiteUrl,
-              changeOrigin: true,
-              secure: false,
-            },
+            '/api/auth/**': { target: convexSiteUrl, changeOrigin: true },
           }
         : undefined,
+    },
+    server: {
+      port: 3000,
     },
     plugins: [
       tailwindcss(),
