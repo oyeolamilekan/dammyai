@@ -8,12 +8,14 @@ import { getCachedSession } from '~/lib/auth-client'
 export const Route = createFileRoute('/dashboard')({
   component: DashboardLayout,
   pendingComponent: DashboardPending,
-  beforeLoad: async () => {
-    // Skip auth check during SSR — cookies aren't available server-side.
+  beforeLoad: async ({ location }) => {
     if (typeof window === 'undefined') return
     const session = await getCachedSession()
     if (!session) {
-      throw redirect({ to: '/login' })
+      throw redirect({
+        to: '/login',
+        search: { redirect: location.href },
+      })
     }
   },
 })

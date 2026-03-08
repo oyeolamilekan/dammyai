@@ -1,18 +1,31 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
-import { authClient } from '~/lib/auth-client'
+import { authClient, clearSessionCache, getCachedSession } from '~/lib/auth-client'
+
+type LoginSearch = { redirect?: string }
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
+  validateSearch: (search: Record<string, unknown>): LoginSearch => ({
+    redirect: typeof search.redirect === 'string' ? search.redirect : undefined,
+  }),
+  beforeLoad: async () => {
+    if (typeof window === 'undefined') return
+    const session = await getCachedSession()
+    if (session) {
+      throw redirect({ to: '/dashboard' })
+    }
+  },
 })
 
 function LoginPage() {
   const navigate = useNavigate()
+  const { redirect: redirectTo } = Route.useSearch()
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -45,8 +58,9 @@ function LoginPage() {
         }
       }
 
+      clearSessionCache()
       toast.success(mode === 'sign-in' ? 'Signed in' : 'Account created')
-      await navigate({ to: '/dashboard' })
+      await navigate({ to: redirectTo || '/dashboard' })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Auth failed')
     } finally {
