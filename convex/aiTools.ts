@@ -38,14 +38,15 @@ export const saveCoreMemory = internalMutation({
       .query('coreMemories')
       .withIndex('userId', (q) => q.eq('userId', args.userId))
       .collect()
-    if (allRows.length >= 20) {
-      return 'Cannot save: maximum of 20 core memories reached.'
+    if (allRows.length >= 50) {
+      return 'Cannot save: maximum of 50 core memories reached.'
     }
 
     await ctx.db.insert('coreMemories', {
       userId: args.userId,
       key,
       value,
+      source: 'agent',
       createdAt: now(),
       updatedAt: now(),
     })
@@ -102,28 +103,35 @@ export const searchArchivalMemories = internalQuery({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const query = args.query.trim().toLowerCase()
-    if (!query) {
+    const queryText = args.query.trim().toLowerCase()
+    if (!queryText) {
       return []
     }
     const limit = Math.min(20, Math.max(1, args.limit ?? 10))
+    const keywords = queryText.split(/\s+/).filter((w) => w.length > 0)
+
     const rows = await ctx.db
       .query('archivalMemories')
       .withIndex('userId', (q) => q.eq('userId', args.userId))
       .collect()
-    return rows
-      .filter((row) => {
+
+    const scored = rows
+      .map((row) => {
         const content = row.content.toLowerCase()
         const tags = row.tags?.toLowerCase() ?? ''
-        return content.includes(query) || tags.includes(query)
+        const text = `${content} ${tags}`
+        const matchCount = keywords.filter((kw) => text.includes(kw)).length
+        return { row, matchCount }
       })
-      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .filter((entry) => entry.matchCount > 0)
+      .sort((a, b) => b.matchCount - a.matchCount || b.row.updatedAt - a.row.updatedAt)
       .slice(0, limit)
-      .map((row) => ({
-        id: String(row._id),
-        content: row.content,
-        tags: row.tags ?? null,
-      }))
+
+    return scored.map((entry) => ({
+      id: String(entry.row._id),
+      content: entry.row.content,
+      tags: entry.row.tags ?? null,
+    }))
   },
 })
 
@@ -159,9 +167,7 @@ export const listScheduledTasks = internalQuery({
       .withIndex('userId', (q) => q.eq('userId', args.userId))
       .order('desc')
       .take(limit * 2) // over-fetch to account for type filtering
-    const filtered = args.type
-      ? rows.filter((r) => r.type === args.type)
-      : rows
+    const filtered = args.type ? rows.filter((r) => r.type === args.type) : rows
     return filtered.slice(0, limit).map((row) => ({
       id: String(row._id),
       prompt: row.prompt,

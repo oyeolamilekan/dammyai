@@ -6,7 +6,6 @@ import {
   Archive,
   Bot,
   Brain,
-  Lightbulb,
   MessageSquare,
   User,
   Wrench,
@@ -79,15 +78,10 @@ function Pagination({
 function MemoriesPage() {
   const convexApi = api as any
 
-  const [factsPage, setFactsPage] = useState(1)
   const [archivalPage, setArchivalPage] = useState(1)
   const [convoPage, setConvoPage] = useState(1)
 
   const core = useQuery(convexApi.memories.listCoreMemories)
-  const memories = useQuery(convexApi.memories.listMemories, {
-    page: factsPage,
-    limit: PAGE_SIZE,
-  })
   const archival = useQuery(convexApi.memories.listArchivalMemories, {
     page: archivalPage,
     limit: PAGE_SIZE,
@@ -99,7 +93,6 @@ function MemoriesPage() {
 
   const upsertCore = useMutation(convexApi.memories.createOrUpdateCoreMemory)
   const deleteCore = useMutation(convexApi.memories.deleteCoreMemory)
-  const deleteMemory = useMutation(convexApi.memories.deleteMemory)
   const deleteArchival = useMutation(convexApi.memories.deleteArchivalMemory)
 
   const [key, setKey] = useState('')
@@ -121,9 +114,6 @@ function MemoriesPage() {
       <TabsList>
         <TabsTrigger value="core">
           <Brain className="size-4" /> Core
-        </TabsTrigger>
-        <TabsTrigger value="facts">
-          <Lightbulb className="size-4" /> Facts
         </TabsTrigger>
         <TabsTrigger value="archival">
           <Archive className="size-4" /> Archival
@@ -170,9 +160,16 @@ function MemoriesPage() {
                     key={item.id}
                     className="flex items-center justify-between rounded-md border p-2"
                   >
-                    <p className="text-sm">
-                      <strong>{item.key}</strong>: {item.value}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm">
+                        <strong>{item.key}</strong>: {item.value}
+                      </p>
+                      {item.source && item.source !== 'user' && (
+                        <Badge variant="outline" className="text-[10px]">
+                          {item.source}
+                        </Badge>
+                      )}
+                    </div>
                     <Button
                       size="sm"
                       variant="destructive"
@@ -194,51 +191,6 @@ function MemoriesPage() {
                 ))
               )}
             </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
-
-      <TabsContent value="facts">
-        <Card>
-          <CardContent className="space-y-2 pt-6">
-            {memories === undefined ? (
-              <ListSkeleton />
-            ) : (memories?.items ?? []).length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                No facts stored yet.
-              </p>
-            ) : (
-              (memories?.items ?? []).map((item: any) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between rounded-md border p-2"
-                >
-                  <p className="text-sm">{item.content}</p>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => {
-                      void deleteMemory({ id: item.id }).catch((error) => {
-                        toast.error(
-                          error instanceof Error
-                            ? error.message
-                            : 'Delete failed',
-                        )
-                      })
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              ))
-            )}
-            {memories && (
-              <Pagination
-                page={memories.page}
-                totalPages={memories.totalPages}
-                onPageChange={setFactsPage}
-              />
-            )}
           </CardContent>
         </Card>
       </TabsContent>

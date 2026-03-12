@@ -27,45 +27,6 @@ const paginate = <T>(items: Array<T>, page: number, limit: number) => {
   }
 }
 
-export const listMemories = query({
-  args: pageArgs,
-  handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx)
-    const page = normalizePage(args.page)
-    const limit = normalizeLimit(args.limit)
-
-    const rows = await ctx.db
-      .query('memories')
-      .withIndex('userId', (q) => q.eq('userId', userId))
-      .collect()
-
-    const sorted = rows
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .map((row) => ({
-        id: row._id,
-        content: row.content,
-        category: row.category ?? null,
-        createdAt: new Date(row.createdAt).toISOString(),
-        updatedAt: new Date(row.updatedAt).toISOString(),
-      }))
-
-    return paginate(sorted, page, limit)
-  },
-})
-
-export const deleteMemory = mutation({
-  args: { id: v.id('memories') },
-  handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx)
-    const existing = await ctx.db.get('memories', args.id)
-    if (!existing || existing.userId !== userId) {
-      throw new Error('Not found')
-    }
-    await ctx.db.delete('memories', args.id)
-    return { success: true }
-  },
-})
-
 export const listConversations = query({
   args: pageArgs,
   handler: async (ctx, args) => {
@@ -107,6 +68,7 @@ export const listCoreMemories = query({
         id: row._id,
         key: row.key,
         value: row.value,
+        source: row.source ?? 'user',
         createdAt: new Date(row.createdAt).toISOString(),
         updatedAt: new Date(row.updatedAt).toISOString(),
       }))
@@ -148,14 +110,15 @@ export const createOrUpdateCoreMemory = mutation({
       .query('coreMemories')
       .withIndex('userId', (q) => q.eq('userId', userId))
       .collect()
-    if (allRows.length >= 20) {
-      throw new Error('Maximum of 20 core memories reached')
+    if (allRows.length >= 50) {
+      throw new Error('Maximum of 50 core memories reached')
     }
 
     return await ctx.db.insert('coreMemories', {
       userId,
       key,
       value,
+      source: 'user',
       createdAt: timestamp,
       updatedAt: timestamp,
     })

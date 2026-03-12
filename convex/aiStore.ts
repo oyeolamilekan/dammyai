@@ -41,23 +41,6 @@ export const getConversationHistory = internalQuery({
   },
 })
 
-export const getUserMemories = internalQuery({
-  args: { userId: v.string(), limit: v.optional(v.number()) },
-  handler: async (ctx, args) => {
-    const limit = Math.min(100, Math.max(1, args.limit ?? 20))
-    const rows = await ctx.db
-      .query('memories')
-      .withIndex('userId_updatedAt', (q) => q.eq('userId', args.userId))
-      .order('desc')
-      .take(limit)
-    return rows.map((row) => ({
-      id: row._id,
-      content: row.content,
-      category: row.category,
-    }))
-  },
-})
-
 export const getCoreMemories = internalQuery({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
@@ -89,35 +72,37 @@ export const saveMessage = internalMutation({
   },
 })
 
-export const saveExtractedMemories = internalMutation({
+export const upsertAutoExtractedCoreMemories = internalMutation({
   args: {
     userId: v.string(),
     facts: v.array(
       v.object({
-        content: v.string(),
+        key: v.string(),
+        value: v.string(),
         category: v.optional(v.string()),
       }),
     ),
   },
   handler: async (ctx, args) => {
     const now = Date.now()
-    const existingRows = await ctx.db
-      .query('memories')
-      .withIndex('userId', (q) => q.eq('userId', args.userId))
-      .collect()
-    const existingByContent = new Map(
-      existingRows.map((row) => [row.content.trim().toLowerCase(), row]),
-    )
-
     let changed = 0
+
     for (const fact of args.facts) {
-      const content = fact.content.trim().slice(0, 500)
-      if (!content) continue
-      const key = content.toLowerCase()
-      const existing = existingByContent.get(key)
+      const key = fact.key.trim().slice(0, 50).toLowerCase()
+      const value = fact.value.trim().slice(0, 200)
+      if (!key || !value) continue
+
+      const existing = await ctx.db
+        .query('coreMemories')
+        .withIndex('userId_key', (q) =>
+          q.eq('userId', args.userId).eq('key', key),
+        )
+        .unique()
+
       if (existing) {
-        if ((existing.category ?? undefined) !== fact.category) {
-          await ctx.db.patch('memories', existing._id, {
+        if (existing.value !== value || existing.category !== fact.category) {
+          await ctx.db.patch('coreMemories', existing._id, {
+            value,
             category: fact.category,
             updatedAt: now,
           })
@@ -125,10 +110,19 @@ export const saveExtractedMemories = internalMutation({
         }
         continue
       }
-      await ctx.db.insert('memories', {
+
+      const allRows = await ctx.db
+        .query('coreMemories')
+        .withIndex('userId', (q) => q.eq('userId', args.userId))
+        .collect()
+      if (allRows.length >= 50) break
+
+      await ctx.db.insert('coreMemories', {
         userId: args.userId,
-        content,
+        key,
+        value,
         category: fact.category,
+        source: 'auto',
         createdAt: now,
         updatedAt: now,
       })

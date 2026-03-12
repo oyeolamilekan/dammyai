@@ -26,7 +26,8 @@ import type { ActionCtx } from './_generated/server'
 
 const DEFAULT_MODEL = 'openai/gpt-4o-mini'
 const DEFAULT_MEMORY_MODEL = 'openai/gpt-4o-mini'
-const DEFAULT_SYSTEM_PROMPT = `You are an intelligent personal assistant. You think before you act, choose the right tool for the job, and communicate clearly.
+const DEFAULT_SYSTEM_PROMPT =
+  `You are an intelligent personal assistant. You think before you act, choose the right tool for the job, and communicate clearly.
 
 ## Behavior
 - **Think first.** Before responding or calling a tool, reason: what is the user asking? What tool (if any) is best?
@@ -37,8 +38,7 @@ const DEFAULT_SYSTEM_PROMPT = `You are an intelligent personal assistant. You th
 
 const MEMORY_INSTRUCTIONS = `
 ## Memory
-Core memory (<core_memory>): persistent user facts — name, timezone, job, preferences.
-Recent facts (<facts>): short facts from prior conversations.
+Core memory (<core_memory>): persistent user facts — name, timezone, job, preferences, and auto-learned facts.
 Use memory tools to save/search/delete. Reference past context when the user alludes to it.
 If the user's timezone is missing from core memory, ask and save it (key: "timezone", value: IANA e.g. "Africa/Lagos").
 
@@ -74,7 +74,8 @@ type AIPromptArgs = {
 }
 
 type ExtractedFact = {
-  content: string
+  key: string
+  value: string
   category?: string
 }
 
@@ -103,12 +104,9 @@ const normalizeMemoryModelId = () => {
 const buildSystemPrompt = (
   basePrompt: string,
   coreMemories: Array<{ key: string; value: string }>,
-  facts: Array<{ content: string; category?: string }>,
 ) => {
   // Use user's timezone from core memory if available
-  const tzEntry = coreMemories.find(
-    (m) => m.key.toLowerCase() === 'timezone',
-  )
+  const tzEntry = coreMemories.find((m) => m.key.toLowerCase() === 'timezone')
   const tz = tzEntry?.value || 'UTC'
   const nowStr = new Date().toLocaleString('en-US', {
     timeZone: tz,
@@ -132,12 +130,6 @@ const buildSystemPrompt = (
       .join('\n')
     prompt += `\n\n<core_memory>\n${coreBlock}\n</core_memory>`
   }
-  if (facts.length > 0) {
-    const factsBlock = facts
-      .map((m) => `- ${m.content}${m.category ? ` [${m.category}]` : ''}`)
-      .join('\n')
-    prompt += `\n\n<facts>\n${factsBlock}\n</facts>`
-  }
   return prompt
 }
 
@@ -154,10 +146,11 @@ const parseExtractedFacts = (text: string): Array<ExtractedFact> => {
   const facts: Array<ExtractedFact> = []
   for (const item of parsed) {
     if (!item || typeof item !== 'object') continue
-    const row = item as { content?: unknown; category?: unknown }
-    if (typeof row.content !== 'string') continue
+    const row = item as { key?: unknown; value?: unknown; category?: unknown }
+    if (typeof row.key !== 'string' || typeof row.value !== 'string') continue
     facts.push({
-      content: row.content,
+      key: row.key,
+      value: row.value,
       category: typeof row.category === 'string' ? row.category : undefined,
     })
   }
@@ -168,36 +161,44 @@ const extractAndSaveMemories = async (
   ctx: AILikeCtx,
   args: { userId: string; userMessage: string; assistantMessage: string },
 ) => {
-  const memories: Array<{ content: string }> = await ctx.runQuery(
-    internal.aiStore.getUserMemories,
-    {
+  // Skip extraction for trivial messages
+  if (args.userMessage.trim().length < 20) {
+    return 0
+  }
+
+  const coreMemories: Array<{ key: string; value: string }> =
+    await ctx.runQuery(internal.aiStore.getCoreMemories, {
       userId: args.userId,
-      limit: 50,
-    },
-  )
-  const knownFacts = memories.map((memory) => memory.content)
+    })
+  const knownFacts = coreMemories.map((m) => `${m.key}: ${m.value}`)
 
   const { text } = await generateText({
     model: normalizeMemoryModelId(),
     system: [
       'You extract important, long-lasting facts about the user from conversations.',
-      'Return a JSON array of objects with {content, category} fields.',
-      'Only extract NEW facts not already in the known facts list.',
-      'Categories: preference, contact, schedule, personal, work.',
+      'Return a JSON array of objects with {key, value, category} fields.',
+      'key: a short snake_case label (e.g. "name", "timezone", "job_title", "favorite_language").',
+      'value: the fact value (max 200 chars).',
+      'category: one of preference, contact, schedule, personal, work.',
+      'If an existing fact should be updated, reuse the SAME key with the new value.',
+      'Only extract NEW or CHANGED facts not already in the known facts list.',
       'If there are no new facts worth remembering, return an empty array [].',
       'Only return the JSON array, nothing else.',
     ].join(' '),
-    prompt: `Known facts:\n${JSON.stringify(knownFacts)}\n\nUser: ${args.userMessage}\nAssistant: ${args.assistantMessage}`,
+    prompt: `Known facts:\n${knownFacts.join('\n')}\n\nUser: ${args.userMessage}\nAssistant: ${args.assistantMessage}`,
   })
 
   const facts = parseExtractedFacts(text)
   if (facts.length === 0) {
     return 0
   }
-  return await ctx.runMutation(internal.aiStore.saveExtractedMemories, {
-    userId: args.userId,
-    facts,
-  })
+  return await ctx.runMutation(
+    internal.aiStore.upsertAutoExtractedCoreMemories,
+    {
+      userId: args.userId,
+      facts,
+    },
+  )
 }
 
 const formatToolOutput = (value: unknown) => {
@@ -218,7 +219,11 @@ const createAgentTools = (
     description:
       'Save a persistent fact about the user (name, timezone, preferences). Use for info that should persist across all conversations.',
     inputSchema: z.object({
-      key: z.string().min(1).max(50).describe('Fact label, e.g. "timezone", "name", "job"'),
+      key: z
+        .string()
+        .min(1)
+        .max(50)
+        .describe('Fact label, e.g. "timezone", "name", "job"'),
       value: z.string().min(1).max(200).describe('The value to store'),
     }),
     execute: async ({ key, value }) =>
@@ -246,7 +251,10 @@ const createAgentTools = (
       'Save a longer note or detailed info to archival memory. Use for meeting notes, project details, or anything too long for core memory.',
     inputSchema: z.object({
       content: z.string().min(1).max(2000),
-      tags: z.string().optional().describe('Comma-separated tags for search, e.g. "project,meeting"'),
+      tags: z
+        .string()
+        .optional()
+        .describe('Comma-separated tags for search, e.g. "project,meeting"'),
     }),
     execute: async ({ content, tags }) => {
       const id = await ctx.runMutation(internal.aiTools.saveArchivalMemory, {
@@ -467,15 +475,11 @@ export const executeAIPromptImpl = async (
     throw new Error('Prompt is required')
   }
 
-  const [soul, history, facts, coreMemories] = await Promise.all([
+  const [soul, history, coreMemories] = await Promise.all([
     ctx.runQuery(internal.aiStore.getSoulByUserId, { userId: args.userId }),
     ctx.runQuery(internal.aiStore.getConversationHistory, {
       userId: args.userId,
       limit: 50,
-    }),
-    ctx.runQuery(internal.aiStore.getUserMemories, {
-      userId: args.userId,
-      limit: 20,
     }),
     ctx.runQuery(internal.aiStore.getCoreMemories, { userId: args.userId }),
   ])
@@ -488,7 +492,6 @@ export const executeAIPromptImpl = async (
   const systemPrompt = buildSystemPrompt(
     `${basePrompt}\n\n${MEMORY_INSTRUCTIONS}`,
     coreMemories,
-    facts,
   )
 
   await ctx.runMutation(internal.aiStore.saveMessage, {

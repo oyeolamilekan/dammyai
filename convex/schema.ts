@@ -41,6 +41,10 @@ export default defineSchema({
     userId: v.string(),
     key: v.string(),
     value: v.string(),
+    category: v.optional(v.string()),
+    source: v.optional(
+      v.union(v.literal('user'), v.literal('auto'), v.literal('agent')),
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
