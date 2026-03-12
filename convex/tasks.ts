@@ -236,6 +236,12 @@ export const applyTaskExecution = internalMutation({
   },
 })
 
+const TASK_SYSTEM_PROMPT =
+  'You are executing an automated scheduled task. The user is NOT present — do NOT ask questions, clarify, or confirm. ' +
+  'Just execute the task directly and deliver the result. Be concise and action-oriented. ' +
+  'If the task says "remind", compose and send the reminder message immediately via Telegram or include it in your response. ' +
+  'Never wait for user input.'
+
 const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
   const task = await ctx.runQuery(internal.tasks.getTaskById, { id })
   if (!task || !task.enabled) {
@@ -256,6 +262,7 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
     result = await executeAIPromptImpl(ctx, {
       userId: task.userId,
       prompt: task.prompt,
+      systemPrompt: TASK_SYSTEM_PROMPT,
       onToolCall: async (step) => {
         await ctx.runMutation(internal.taskLogs.appendLogStep, {
           logId,
