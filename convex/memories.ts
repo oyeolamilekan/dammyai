@@ -27,24 +27,6 @@ const paginate = <T>(items: Array<T>, page: number, limit: number) => {
   }
 }
 
-/** @deprecated Kept as a stub so old frontend builds don't crash. Remove after redeploying. */
-export const listMemories = query({
-  args: pageArgs,
-  handler: async (_ctx, args) => {
-    const page = normalizePage(args.page)
-    const limit = normalizeLimit(args.limit)
-    return { items: [], total: 0, page, limit, totalPages: 1 }
-  },
-})
-
-/** @deprecated Kept as a stub so old frontend builds don't crash. Remove after redeploying. */
-export const deleteMemory = mutation({
-  args: { id: v.id('memories') },
-  handler: async () => {
-    return { success: true }
-  },
-})
-
 export const listConversations = query({
   args: pageArgs,
   handler: async (ctx, args) => {

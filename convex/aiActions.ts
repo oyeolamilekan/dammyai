@@ -38,14 +38,21 @@ const DEFAULT_SYSTEM_PROMPT =
 
 const MEMORY_INSTRUCTIONS = `
 ## Memory
-Core memory (<core_memory>): persistent user facts — name, timezone, job, preferences, and auto-learned facts.
-Use memory tools to save/search/delete. Reference past context when the user alludes to it.
+Core memory (<core_memory>): key-value facts about the user and their preferences — name, timezone, job, bot name, communication style, etc.
+Archival memory: longer notes, meeting summaries, project details, research findings.
+
+**Proactively save memories.** When the user shares personal info, preferences, or asks you to remember something:
+- Use saveCoreMemory for short facts (name, timezone, "call me X", preferred language, bot nickname).
+- Use saveArchivalMemory for longer context (project briefs, meeting notes, detailed instructions).
+- Don't ask permission to remember obvious facts like the user's name or timezone — just save them.
+
 If the user's timezone is missing from core memory, ask and save it (key: "timezone", value: IANA e.g. "Africa/Lagos").
+If the user gives you a name or nickname, save it (key: "bot_name", value: the name they chose).
 
 ## Tools
 Only call a tool when it adds value. If you know the answer, just respond.
 
-**Memory** — save/search/delete core memory (key-value) and archival memory (long-form notes). Use saveCoreMemory for quick facts, saveArchivalMemory for detailed notes.
+**Memory** — saveCoreMemory for quick facts, saveArchivalMemory for detailed notes, searchArchivalMemory to find past notes.
 **Tasks** — create/list/update/delete scheduled tasks. Convert user times from their timezone to UTC ISO 8601 for runAtIso.
 **Research** — start/cancel background research. Use for deep-dive questions that need extended web research.
 **Gmail** — checkMail to read inbox, sendMail to compose (show draft first, confirm before sending), manageMail to archive/delete.
@@ -73,10 +80,13 @@ type AIPromptArgs = {
   onToolCall?: (step: ToolCallStep) => Promise<void>
 }
 
-type ExtractedFact = {
-  key: string
-  value: string
+type ExtractedMemory = {
+  type: 'core' | 'archival'
+  key?: string
+  value?: string
+  content?: string
   category?: string
+  tags?: string
 }
 
 const getEnv = () =>
@@ -133,7 +143,7 @@ const buildSystemPrompt = (
   return prompt
 }
 
-const parseExtractedFacts = (text: string): Array<ExtractedFact> => {
+const parseExtractedMemories = (text: string): Array<ExtractedMemory> => {
   let parsed: unknown
   try {
     parsed = JSON.parse(text)
@@ -143,25 +153,35 @@ const parseExtractedFacts = (text: string): Array<ExtractedFact> => {
   if (!Array.isArray(parsed)) {
     return []
   }
-  const facts: Array<ExtractedFact> = []
+  const memories: Array<ExtractedMemory> = []
   for (const item of parsed) {
     if (!item || typeof item !== 'object') continue
-    const row = item as { key?: unknown; value?: unknown; category?: unknown }
-    if (typeof row.key !== 'string' || typeof row.value !== 'string') continue
-    facts.push({
-      key: row.key,
-      value: row.value,
-      category: typeof row.category === 'string' ? row.category : undefined,
-    })
+    const row = item as Record<string, unknown>
+    const type = row.type === 'archival' ? 'archival' : 'core'
+    if (type === 'core') {
+      if (typeof row.key !== 'string' || typeof row.value !== 'string') continue
+      memories.push({
+        type: 'core',
+        key: row.key,
+        value: row.value,
+        category: typeof row.category === 'string' ? row.category : undefined,
+      })
+    } else {
+      if (typeof row.content !== 'string') continue
+      memories.push({
+        type: 'archival',
+        content: row.content,
+        tags: typeof row.tags === 'string' ? row.tags : undefined,
+      })
+    }
   }
-  return facts
+  return memories
 }
 
 const extractAndSaveMemories = async (
   ctx: AILikeCtx,
   args: { userId: string; userMessage: string; assistantMessage: string },
 ) => {
-  // Skip extraction for trivial messages
   if (args.userMessage.trim().length < 20) {
     return 0
   }
@@ -175,30 +195,61 @@ const extractAndSaveMemories = async (
   const { text } = await generateText({
     model: normalizeMemoryModelId(),
     system: [
-      'You extract important, long-lasting facts about the user from conversations.',
-      'Return a JSON array of objects with {key, value, category} fields.',
-      'key: a short snake_case label (e.g. "name", "timezone", "job_title", "favorite_language").',
-      'value: the fact value (max 200 chars).',
-      'category: one of preference, contact, schedule, personal, work.',
-      'If an existing fact should be updated, reuse the SAME key with the new value.',
-      'Only extract NEW or CHANGED facts not already in the known facts list.',
-      'If there are no new facts worth remembering, return an empty array [].',
-      'Only return the JSON array, nothing else.',
-    ].join(' '),
-    prompt: `Known facts:\n${knownFacts.join('\n')}\n\nUser: ${args.userMessage}\nAssistant: ${args.assistantMessage}`,
+      'You analyze conversations and extract memories worth saving.',
+      'Return a JSON array. Each item has a "type" field: either "core" or "archival".',
+      '',
+      'CORE memories (type: "core") are short key-value facts:',
+      '  {type: "core", key: "snake_case_label", value: "short fact", category: "..."}',
+      '  Keys: name, bot_name, timezone, job_title, company, location, favorite_language, communication_style, etc.',
+      '  Categories: preference, contact, schedule, personal, work.',
+      '  If an existing fact changed, reuse the SAME key with the new value.',
+      '  Max 200 chars for value.',
+      '',
+      'ARCHIVAL memories (type: "archival") are longer notes worth remembering:',
+      '  {type: "archival", content: "detailed note...", tags: "comma,separated,tags"}',
+      '  Use for: project details, meeting summaries, multi-step instructions, detailed preferences.',
+      '  Max 2000 chars for content.',
+      '',
+      'Rules:',
+      '- Only extract NEW or CHANGED information not in the known facts.',
+      '- Prefer core for short identity facts. Prefer archival for anything longer than a sentence.',
+      '- If there is nothing new worth remembering, return [].',
+      '- Only return the JSON array, nothing else.',
+    ].join('\n'),
+    prompt: `Known core facts:\n${knownFacts.join('\n') || '(none)'}\n\nUser: ${args.userMessage}\nAssistant: ${args.assistantMessage}`,
   })
 
-  const facts = parseExtractedFacts(text)
-  if (facts.length === 0) {
+  const memories = parseExtractedMemories(text)
+  if (memories.length === 0) {
     return 0
   }
-  return await ctx.runMutation(
-    internal.aiStore.upsertAutoExtractedCoreMemories,
-    {
+
+  const coreFacts = memories
+    .filter((m) => m.type === 'core' && m.key && m.value)
+    .map((m) => ({ key: m.key!, value: m.value!, category: m.category }))
+
+  const archivalNotes = memories
+    .filter((m) => m.type === 'archival' && m.content)
+
+  let changed = 0
+
+  if (coreFacts.length > 0) {
+    changed += await ctx.runMutation(
+      internal.aiStore.upsertAutoExtractedCoreMemories,
+      { userId: args.userId, facts: coreFacts },
+    )
+  }
+
+  for (const note of archivalNotes) {
+    await ctx.runMutation(internal.aiTools.saveArchivalMemory, {
       userId: args.userId,
-      facts,
-    },
-  )
+      content: note.content!,
+      tags: note.tags,
+    })
+    changed += 1
+  }
+
+  return changed
 }
 
 const formatToolOutput = (value: unknown) => {
