@@ -23,7 +23,6 @@ import type * as lib_pdfGenerator from "../lib/pdfGenerator.js";
 import type * as lib_session from "../lib/session.js";
 import type * as lib_telegramFormat from "../lib/telegramFormat.js";
 import type * as memories from "../memories.js";
-import type * as migrations from "../migrations.js";
 import type * as oauth_gmail from "../oauth/gmail.js";
 import type * as oauth_googleCalendar from "../oauth/googleCalendar.js";
 import type * as oauth_notion from "../oauth/notion.js";
@@ -64,7 +63,6 @@ declare const fullApi: ApiFromModules<{
   "lib/session": typeof lib_session;
   "lib/telegramFormat": typeof lib_telegramFormat;
   memories: typeof memories;
-  migrations: typeof migrations;
   "oauth/gmail": typeof oauth_gmail;
   "oauth/googleCalendar": typeof oauth_googleCalendar;
   "oauth/notion": typeof oauth_notion;
