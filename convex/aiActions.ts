@@ -33,12 +33,13 @@ const MEMORY_INSTRUCTIONS = `
 Core memory (<core_memory>): persistent user facts — name, timezone, job, preferences.
 Recent facts (<facts>): short facts from prior conversations.
 Use memory tools to save/search/delete core and archival memory. Pull relevant context when the user references past sessions.
+If the user's timezone is not in core memory, ask for it and save it (key: "timezone", value: IANA timezone e.g. "Africa/Lagos").
 
 ## Tools
 Use tools directly when they help. Don't use a tool if you already know the answer.
 
 - **Memory**: save, search, delete core and archival memory.
-- **Tasks**: create/list/update/delete scheduled tasks. Convert phrases like "tomorrow at 9am" to ISO 8601 timestamps.
+- **Tasks**: create/list/update/delete scheduled tasks. Always convert user times from their timezone to UTC for runAtIso.
 - **Research**: start/cancel background research jobs.
 - **Gmail**: check inbox, send/draft emails, archive/delete. Always show draft and confirm before sending.
 - **Calendar**: check schedule, create/remove events. Confirm details (title, time, duration) before creating.
@@ -89,7 +90,27 @@ const buildSystemPrompt = (
   coreMemories: Array<{ key: string; value: string }>,
   facts: Array<{ content: string; category?: string }>,
 ) => {
-  let prompt = basePrompt + `\n\nCurrent date/time: ${new Date().toISOString()}`
+  // Use user's timezone from core memory if available
+  const tzEntry = coreMemories.find(
+    (m) => m.key.toLowerCase() === 'timezone',
+  )
+  const tz = tzEntry?.value || 'UTC'
+  const nowStr = new Date().toLocaleString('en-US', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZoneName: 'short',
+  })
+  let prompt =
+    basePrompt +
+    `\n\nCurrent date/time: ${nowStr}` +
+    `\nUser timezone: ${tz}` +
+    `\nWhen the user specifies times (e.g. "9am tomorrow"), interpret them in the user's timezone (${tz}) and convert to a UTC ISO 8601 string for tool calls.`
   if (coreMemories.length > 0) {
     const coreBlock = coreMemories
       .map((m) => `- ${m.key}: ${m.value}`)
@@ -255,7 +276,7 @@ const createAgentTools = (
   }),
   createScheduledTask: tool({
     description:
-      'Create a scheduled task that runs at a specific time. For one_off: set runAtIso to when it should execute (required). For recurring: set intervalMinutes for repeat cadence and optionally runAtIso for the first execution time (e.g. "start tomorrow at 9am, repeat every 60 minutes"). Always convert user-specified times to ISO 8601 using the current date/time from the system prompt.',
+      'Create a scheduled task. For one_off: set runAtIso (required). For recurring: set intervalMinutes and optionally runAtIso for first run. Convert user times from their timezone to UTC ISO 8601 (e.g. if user is Africa/Lagos UTC+1 and says "9am", that is "08:00:00Z").',
     inputSchema: z.object({
       prompt: z.string().min(1).describe('What the task should do'),
       type: z.enum(['one_off', 'recurring']),
@@ -263,7 +284,7 @@ const createAgentTools = (
         .string()
         .optional()
         .describe(
-          'ISO 8601 datetime for when to run, e.g. "2026-03-05T09:00:00Z". Required for one_off. Optional for recurring (sets first run time).',
+          'UTC ISO 8601 datetime, e.g. "2026-03-05T08:00:00Z". Convert from user timezone to UTC. Required for one_off.',
         ),
       intervalMinutes: z
         .number()
