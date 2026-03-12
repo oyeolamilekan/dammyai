@@ -21,6 +21,15 @@ const normalizeLimit = (limit?: number) =>
 const now = () => Date.now()
 const MIN_INTERVAL_MS = 60_000 // 1 minute
 
+const formatToolOutputStr = (output: unknown): string => {
+  if (typeof output === 'string') return output
+  try {
+    return JSON.stringify(output)
+  } catch {
+    return String(output)
+  }
+}
+
 const paginate = <T>(items: Array<T>, page: number, limit: number) => {
   const total = items.length
   const totalPages = Math.max(1, Math.ceil(total / limit))
@@ -63,6 +72,7 @@ export const listTasks = query({
         nextRunAt: row.nextRunAt ? new Date(row.nextRunAt).toISOString() : null,
         lastRunAt: row.lastRunAt ? new Date(row.lastRunAt).toISOString() : null,
         lastResult: row.lastResult ?? null,
+        lastLogId: row.lastLogId ?? null,
         enabled: row.enabled,
         createdAt: new Date(row.createdAt).toISOString(),
       }))
@@ -212,6 +222,7 @@ export const applyTaskExecution = internalMutation({
     ranAt: v.number(),
     nextRunAt: v.optional(v.number()),
     enabled: v.boolean(),
+    lastLogId: v.optional(v.id('taskExecutionLogs')),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch('scheduledTasks', args.id, {
@@ -219,6 +230,7 @@ export const applyTaskExecution = internalMutation({
       lastResult: args.result,
       nextRunAt: args.nextRunAt,
       enabled: args.enabled,
+      lastLogId: args.lastLogId,
       updatedAt: args.ranAt,
     })
   },
@@ -231,17 +243,47 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
   }
 
   const ranAt = now()
+  let stepIndex = 0
+
+  // Create execution log
+  const logId = await ctx.runMutation(internal.taskLogs.createExecutionLog, {
+    taskId: id,
+  })
+
   let result: string
+  let failed = false
   try {
     result = await executeAIPromptImpl(ctx, {
       userId: task.userId,
       prompt: task.prompt,
+      onToolCall: async (step) => {
+        await ctx.runMutation(internal.taskLogs.appendLogStep, {
+          logId,
+          step: {
+            stepIndex: stepIndex++,
+            toolName: step.toolName,
+            toolCallId: step.toolCallId,
+            input: JSON.stringify(step.input).slice(0, 2000),
+            output: formatToolOutputStr(step.output).slice(0, 4000),
+            timestamp: Date.now(),
+          },
+        })
+      },
     })
   } catch (error) {
+    failed = true
     result = `Task execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
   }
 
-  // Directly deliver result via Telegram (don't rely on AI calling the tool)
+  // Complete execution log
+  await ctx.runMutation(internal.taskLogs.completeExecutionLog, {
+    logId,
+    status: failed ? 'failed' : 'completed',
+    result: result.slice(0, 4000),
+    error: failed ? result : undefined,
+  })
+
+  // Deliver result via Telegram (best-effort)
   try {
     const integration = await ctx.runQuery(
       internal.telegramStore.getIntegrationByUserId,
@@ -252,7 +294,7 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
       await sendTelegramMessage(integration.telegramChatId, header + result)
     }
   } catch {
-    // Telegram delivery is best-effort; don't fail the task
+    // Telegram delivery is best-effort
   }
 
   const nextRunAt =
@@ -266,6 +308,7 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
     ranAt,
     nextRunAt,
     enabled: task.type === 'recurring',
+    lastLogId: logId,
   })
 }
 

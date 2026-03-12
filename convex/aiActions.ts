@@ -26,36 +26,51 @@ import type { ActionCtx } from './_generated/server'
 
 const DEFAULT_MODEL = 'openai/gpt-4o-mini'
 const DEFAULT_MEMORY_MODEL = 'openai/gpt-4o-mini'
-const DEFAULT_SYSTEM_PROMPT =
-  'You are an intelligent personal assistant. Be direct, concise, and action-oriented. Think before acting — pick the right tool for the job. If a task is ambiguous, ask one clarifying question, not five.'
+const DEFAULT_SYSTEM_PROMPT = `You are an intelligent personal assistant. You think before you act, choose the right tool for the job, and communicate clearly.
+
+## Behavior
+- **Think first.** Before responding or calling a tool, reason: what is the user asking? What tool (if any) is best?
+- **Be direct.** Answer the question, complete the task, stop. Don't pad responses.
+- **Chain when needed.** If a request needs multiple tools (e.g. search → summarize → email), plan the steps then execute them in sequence.
+- **Handle failures.** If a tool fails, explain why briefly and suggest an alternative.
+- **One clarification max.** If ambiguous, ask one focused question — not five.`.trim()
+
 const MEMORY_INSTRUCTIONS = `
 ## Memory
 Core memory (<core_memory>): persistent user facts — name, timezone, job, preferences.
 Recent facts (<facts>): short facts from prior conversations.
-Use memory tools to save/search/delete core and archival memory. Pull relevant context when the user references past sessions.
-If the user's timezone is not in core memory, ask for it and save it (key: "timezone", value: IANA timezone e.g. "Africa/Lagos").
+Use memory tools to save/search/delete. Reference past context when the user alludes to it.
+If the user's timezone is missing from core memory, ask and save it (key: "timezone", value: IANA e.g. "Africa/Lagos").
 
 ## Tools
-Use tools directly when they help. Don't use a tool if you already know the answer.
+Only call a tool when it adds value. If you know the answer, just respond.
 
-- **Memory**: save, search, delete core and archival memory.
-- **Tasks**: create/list/update/delete scheduled tasks. Always convert user times from their timezone to UTC for runAtIso.
-- **Research**: start/cancel background research jobs.
-- **Gmail**: check inbox, send/draft emails, archive/delete. Always show draft and confirm before sending.
-- **Calendar**: check schedule, create/remove events. Confirm details (title, time, duration) before creating.
-- **Todoist**: check todos, add/complete/remove tasks.
-- **Notion**: create/update pages, search workspace.
-- **Telegram**: send messages to user's linked Telegram.
-- **Web search**: search for current info, news, live data. Cite sources. Summarize in your own words.
+**Memory** — save/search/delete core memory (key-value) and archival memory (long-form notes). Use saveCoreMemory for quick facts, saveArchivalMemory for detailed notes.
+**Tasks** — create/list/update/delete scheduled tasks. Convert user times from their timezone to UTC ISO 8601 for runAtIso.
+**Research** — start/cancel background research. Use for deep-dive questions that need extended web research.
+**Gmail** — checkMail to read inbox, sendMail to compose (show draft first, confirm before sending), manageMail to archive/delete.
+**Calendar** — checkSchedule for upcoming events, scheduleCall to create events (confirm title/time/duration first), removeEvent to delete.
+**Todoist** — checkTodos for task list, updateTodo to add/complete/remove tasks.
+**Notion** — createNotionDocument, updateNotionDocument, searchNotion for workspace.
+**Telegram** — sendTelegramMessage to notify user on their linked Telegram.
+**Web search** — search for current info, recent news, live data. Cite sources. Summarize in your own words.
 `.trim()
 
 type AILikeCtx = Pick<ActionCtx, 'runQuery' | 'runMutation'>
+
+type ToolCallStep = {
+  toolName: string
+  toolCallId: string
+  input: unknown
+  output: unknown
+}
 
 type AIPromptArgs = {
   userId: string
   prompt: string
   systemPrompt?: string
   modelPreference?: string
+  onToolCall?: (step: ToolCallStep) => Promise<void>
 }
 
 type ExtractedFact = {
@@ -200,10 +215,11 @@ const createAgentTools = (
   searchProvider?: string,
 ) => ({
   saveCoreMemory: tool({
-    description: 'Save or update a core memory key/value pair.',
+    description:
+      'Save a persistent fact about the user (name, timezone, preferences). Use for info that should persist across all conversations.',
     inputSchema: z.object({
-      key: z.string().min(1).max(50),
-      value: z.string().min(1).max(200),
+      key: z.string().min(1).max(50).describe('Fact label, e.g. "timezone", "name", "job"'),
+      value: z.string().min(1).max(200).describe('The value to store'),
     }),
     execute: async ({ key, value }) =>
       await ctx.runMutation(internal.aiTools.saveCoreMemory, {
@@ -226,10 +242,11 @@ const createAgentTools = (
         : 'Core memory not found.',
   }),
   saveArchivalMemory: tool({
-    description: 'Save archival memory content with optional tags.',
+    description:
+      'Save a longer note or detailed info to archival memory. Use for meeting notes, project details, or anything too long for core memory.',
     inputSchema: z.object({
       content: z.string().min(1).max(2000),
-      tags: z.string().optional(),
+      tags: z.string().optional().describe('Comma-separated tags for search, e.g. "project,meeting"'),
     }),
     execute: async ({ content, tags }) => {
       const id = await ctx.runMutation(internal.aiTools.saveArchivalMemory, {
@@ -241,7 +258,8 @@ const createAgentTools = (
     },
   }),
   searchArchivalMemory: tool({
-    description: 'Search archival memories by content or tags.',
+    description:
+      'Search archival memories by keyword or tags. Use when the user references past notes, projects, or detailed context.',
     inputSchema: z.object({
       query: z.string().min(1),
       limit: z.number().int().min(1).max(20).optional(),
@@ -369,7 +387,8 @@ const createAgentTools = (
         : 'Scheduled task not found.',
   }),
   startBackgroundResearch: tool({
-    description: 'Create and queue a background research job.',
+    description:
+      'Start a deep background research job. Use for complex questions needing extended web research. Results are delivered asynchronously.',
     inputSchema: z.object({
       prompt: z.string().min(1),
     }),
@@ -485,8 +504,14 @@ export const executeAIPromptImpl = async (
     tools: createAgentTools(ctx, args.userId, searchProvider),
     stopWhen: stepCountIs(8),
     onStepFinish: async ({
+      toolCalls,
       toolResults,
     }: {
+      toolCalls?: Array<{
+        toolCallId?: string
+        toolName?: string
+        args?: unknown
+      }>
       toolResults?: Array<{
         toolCallId?: string
         toolName?: string
@@ -496,7 +521,8 @@ export const executeAIPromptImpl = async (
       if (!toolResults || toolResults.length === 0) {
         return
       }
-      for (const row of toolResults) {
+      for (let i = 0; i < toolResults.length; i++) {
+        const row = toolResults[i]
         const toolName = row.toolName ?? 'tool'
         const content = formatToolOutput(row.output).slice(0, 4000)
         await ctx.runMutation(internal.aiStore.saveMessage, {
@@ -506,6 +532,15 @@ export const executeAIPromptImpl = async (
           toolName,
           toolCallId: row.toolCallId,
         })
+        if (args.onToolCall) {
+          const callArgs = toolCalls?.[i]?.args
+          await args.onToolCall({
+            toolName,
+            toolCallId: row.toolCallId ?? '',
+            input: callArgs ?? {},
+            output: row.output,
+          })
+        }
       }
     },
   })

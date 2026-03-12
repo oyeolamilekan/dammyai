@@ -81,12 +81,37 @@ export default defineSchema({
     nextRunAt: v.optional(v.number()),
     lastRunAt: v.optional(v.number()),
     lastResult: v.optional(v.string()),
+    lastLogId: v.optional(v.id('taskExecutionLogs')),
     enabled: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index('userId', ['userId'])
     .index('enabled_nextRunAt', ['enabled', 'nextRunAt']),
+  taskExecutionLogs: defineTable({
+    taskId: v.id('scheduledTasks'),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    status: v.union(
+      v.literal('running'),
+      v.literal('completed'),
+      v.literal('failed'),
+    ),
+    result: v.optional(v.string()),
+    error: v.optional(v.string()),
+    steps: v.array(
+      v.object({
+        stepIndex: v.number(),
+        toolName: v.string(),
+        toolCallId: v.string(),
+        input: v.string(),
+        output: v.string(),
+        timestamp: v.number(),
+      }),
+    ),
+  })
+    .index('taskId', ['taskId'])
+    .index('taskId_startedAt', ['taskId', 'startedAt']),
   backgroundResearch: defineTable({
     userId: v.string(),
     prompt: v.string(),

@@ -29,6 +29,7 @@ import type * as oauth_notion from "../oauth/notion.js";
 import type * as oauth_todoist from "../oauth/todoist.js";
 import type * as research from "../research.js";
 import type * as soul from "../soul.js";
+import type * as taskLogs from "../taskLogs.js";
 import type * as tasks from "../tasks.js";
 import type * as telegram from "../telegram.js";
 import type * as telegramStore from "../telegramStore.js";
@@ -68,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   "oauth/todoist": typeof oauth_todoist;
   research: typeof research;
   soul: typeof soul;
+  taskLogs: typeof taskLogs;
   tasks: typeof tasks;
   telegram: typeof telegram;
   telegramStore: typeof telegramStore;
