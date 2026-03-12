@@ -150,6 +150,7 @@ export const listScheduledTasks = internalQuery({
   args: {
     userId: v.string(),
     limit: v.optional(v.number()),
+    type: v.optional(v.union(v.literal('one_off'), v.literal('recurring'))),
   },
   handler: async (ctx, args) => {
     const limit = Math.min(30, Math.max(1, args.limit ?? 20))
@@ -157,8 +158,11 @@ export const listScheduledTasks = internalQuery({
       .query('scheduledTasks')
       .withIndex('userId', (q) => q.eq('userId', args.userId))
       .order('desc')
-      .take(limit)
-    return rows.map((row) => ({
+      .take(limit * 2) // over-fetch to account for type filtering
+    const filtered = args.type
+      ? rows.filter((r) => r.type === args.type)
+      : rows
+    return filtered.slice(0, limit).map((row) => ({
       id: String(row._id),
       prompt: row.prompt,
       type: row.type,

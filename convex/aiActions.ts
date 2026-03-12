@@ -291,14 +291,20 @@ const createAgentTools = (
     },
   }),
   listScheduledTasks: tool({
-    description: 'List recent scheduled tasks.',
+    description:
+      'List scheduled tasks. Optionally filter by type (one_off or recurring).',
     inputSchema: z.object({
       limit: z.number().int().min(1).max(30).optional(),
+      type: z
+        .enum(['one_off', 'recurring'])
+        .optional()
+        .describe('Filter by task type.'),
     }),
-    execute: async ({ limit }) => {
+    execute: async ({ limit, type }) => {
       const tasks = await ctx.runQuery(internal.aiTools.listScheduledTasks, {
         userId,
         limit,
+        type,
       })
       if (tasks.length === 0) {
         return 'No scheduled tasks found.'
