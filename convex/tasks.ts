@@ -9,6 +9,7 @@ import {
 } from './_generated/server'
 import { executeAIPromptImpl } from './aiActions'
 import { getUserId, requireUserId } from './lib/session'
+import { sendTelegramMessage } from './telegram'
 import type { Id } from './_generated/dataModel'
 import type { ActionCtx } from './_generated/server'
 
@@ -223,11 +224,6 @@ export const applyTaskExecution = internalMutation({
   },
 })
 
-const TASK_TELEGRAM_INSTRUCTION =
-  '\n\n[SCHEDULED TASK] This prompt is running as an automated scheduled task. ' +
-  'The user is not actively chatting — you MUST send your full response to the user ' +
-  'via the sendTelegramMessage tool so they receive it. Do not skip this step.'
-
 const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
   const task = await ctx.runQuery(internal.tasks.getTaskById, { id })
   if (!task || !task.enabled) {
@@ -237,22 +233,28 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
   const ranAt = now()
   let result: string
   try {
-    const telegramIntegration = await ctx.runQuery(
-      internal.telegramStore.getIntegrationByUserId,
-      { userId: task.userId },
-    )
-    const hasTelegram = !!telegramIntegration?.telegramChatId
-    const prompt = hasTelegram
-      ? task.prompt + TASK_TELEGRAM_INSTRUCTION
-      : task.prompt
-
     result = await executeAIPromptImpl(ctx, {
       userId: task.userId,
-      prompt,
+      prompt: task.prompt,
     })
   } catch (error) {
     result = `Task execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
   }
+
+  // Directly deliver result via Telegram (don't rely on AI calling the tool)
+  try {
+    const integration = await ctx.runQuery(
+      internal.telegramStore.getIntegrationByUserId,
+      { userId: task.userId },
+    )
+    if (integration?.telegramChatId) {
+      const header = `📋 *Scheduled Task Result*\n_${task.prompt}_\n\n`
+      await sendTelegramMessage(integration.telegramChatId, header + result)
+    }
+  } catch {
+    // Telegram delivery is best-effort; don't fail the task
+  }
+
   const nextRunAt =
     task.type === 'recurring' && task.intervalMs
       ? ranAt + task.intervalMs

@@ -26,7 +26,7 @@ const parseStartCode = (text: string) => {
 // Re-exported from lib/telegramFormat.ts — kept here for backward compat
 export { markdownToTelegramHtml } from './lib/telegramFormat'
 
-const sendTelegramMessage = async (chatId: string, text: string) => {
+export const sendTelegramMessage = async (chatId: string, text: string) => {
   const env = getEnv()
   const token = env.TELEGRAM_BOT_TOKEN
   if (!token) return
