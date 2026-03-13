@@ -80,6 +80,20 @@ type AIPromptArgs = {
   onToolCall?: (step: ToolCallStep) => Promise<void>
 }
 
+const parseRunAtIso = (runAtIso?: string): number | undefined => {
+  const value = runAtIso?.trim()
+  if (!value) {
+    return undefined
+  }
+
+  const parsed = new Date(value).getTime()
+  if (!Number.isFinite(parsed)) {
+    throw new Error('Invalid runAtIso datetime')
+  }
+
+  return parsed
+}
+
 type ExtractedMemory = {
   type: 'core' | 'archival'
   key?: string
@@ -228,8 +242,9 @@ const extractAndSaveMemories = async (
     .filter((m) => m.type === 'core' && m.key && m.value)
     .map((m) => ({ key: m.key!, value: m.value!, category: m.category }))
 
-  const archivalNotes = memories
-    .filter((m) => m.type === 'archival' && m.content)
+  const archivalNotes = memories.filter(
+    (m) => m.type === 'archival' && m.content,
+  )
 
   let changed = 0
 
@@ -373,10 +388,7 @@ const createAgentTools = (
         ),
     }),
     execute: async ({ prompt, type, runAtIso, intervalMinutes }) => {
-      const runAt = runAtIso ? new Date(runAtIso).getTime() : undefined
-      if (runAtIso && Number.isNaN(runAt)) {
-        throw new Error('Invalid runAtIso datetime')
-      }
+      const runAt = parseRunAtIso(runAtIso)
       const intervalMs = intervalMinutes ? intervalMinutes * 60_000 : undefined
       const id = await ctx.runMutation(internal.aiTools.createScheduledTask, {
         userId,

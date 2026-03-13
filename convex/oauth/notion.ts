@@ -1,11 +1,11 @@
 import { httpAction } from '../_generated/server'
 import { getRequiredEnv } from '../lib/env'
 
-export const notionAuth = httpAction(async (_ctx, request) => {
+export const notionAuth = httpAction((_ctx, request) => {
   const url = new URL(request.url)
   const userId = url.searchParams.get('userId')
   if (!userId) {
-    return new Response('Missing userId', { status: 400 })
+    return Promise.resolve(new Response('Missing userId', { status: 400 }))
   }
 
   const clientId = getRequiredEnv('NOTION_CLIENT_ID')
@@ -19,12 +19,14 @@ export const notionAuth = httpAction(async (_ctx, request) => {
     state: userId,
   })
 
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: `https://api.notion.com/v1/oauth/authorize?${params.toString()}`,
-    },
-  })
+  return Promise.resolve(
+    new Response(null, {
+      status: 302,
+      headers: {
+        Location: `https://api.notion.com/v1/oauth/authorize?${params.toString()}`,
+      },
+    }),
+  )
 })
 
 export const notionCallback = httpAction(async (ctx, request) => {

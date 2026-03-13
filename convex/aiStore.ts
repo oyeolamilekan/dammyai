@@ -47,7 +47,7 @@ export const getCoreMemories = internalQuery({
     const rows = await ctx.db
       .query('coreMemories')
       .withIndex('userId_key', (q) => q.eq('userId', args.userId))
-      .collect()
+      .take(50)
     return rows.map((row) => ({ key: row.key, value: row.value }))
   },
 })
@@ -86,6 +86,12 @@ export const upsertAutoExtractedCoreMemories = internalMutation({
   handler: async (ctx, args) => {
     const now = Date.now()
     let changed = 0
+    let memoryCount = (
+      await ctx.db
+        .query('coreMemories')
+        .withIndex('userId', (q) => q.eq('userId', args.userId))
+        .take(50)
+    ).length
 
     for (const fact of args.facts) {
       const key = fact.key.trim().slice(0, 50).toLowerCase()
@@ -111,11 +117,7 @@ export const upsertAutoExtractedCoreMemories = internalMutation({
         continue
       }
 
-      const allRows = await ctx.db
-        .query('coreMemories')
-        .withIndex('userId', (q) => q.eq('userId', args.userId))
-        .collect()
-      if (allRows.length >= 50) break
+      if (memoryCount >= 50) break
 
       await ctx.db.insert('coreMemories', {
         userId: args.userId,
@@ -127,6 +129,7 @@ export const upsertAutoExtractedCoreMemories = internalMutation({
         updatedAt: now,
       })
       changed += 1
+      memoryCount += 1
     }
 
     return changed

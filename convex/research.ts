@@ -26,23 +26,22 @@ export const listResearch = query({
     const rows = await ctx.db
       .query('backgroundResearch')
       .withIndex('userId_createdAt', (q) => q.eq('userId', userId))
+      .order('desc')
       .collect()
 
-    return rows
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .map((row) => ({
-        _id: row._id,
-        prompt: row.prompt,
-        status: row.status,
-        summary: row.summary ?? null,
-        hasReport: !!row.result,
-        checkpoints: row.checkpoints ?? [],
-        error: row.error ?? null,
-        createdAt: new Date(row.createdAt).toISOString(),
-        completedAt: row.completedAt
-          ? new Date(row.completedAt).toISOString()
-          : null,
-      }))
+    return rows.map((row) => ({
+      _id: row._id,
+      prompt: row.prompt,
+      status: row.status,
+      summary: row.summary ?? null,
+      hasReport: !!row.result,
+      checkpoints: row.checkpoints ?? [],
+      error: row.error ?? null,
+      createdAt: new Date(row.createdAt).toISOString(),
+      completedAt: row.completedAt
+        ? new Date(row.completedAt).toISOString()
+        : null,
+    }))
   },
 })
 

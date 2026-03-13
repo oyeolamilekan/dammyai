@@ -34,17 +34,12 @@ export const getIntegrationByChatId = internalQuery({
 export const getIntegrationByUserId = internalQuery({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
-    const integrations = await ctx.db
+    return await ctx.db
       .query('integrations')
-      .filter((q) =>
-        q.and(
-          q.eq(q.field('userId'), args.userId),
-          q.eq(q.field('provider'), 'telegram'),
-        ),
+      .withIndex('userId_provider', (q) =>
+        q.eq('userId', args.userId).eq('provider', 'telegram'),
       )
-      .collect()
-    // Return the one with a chatId (linked)
-    return integrations.find((i) => i.telegramChatId) ?? null
+      .unique()
   },
 })
 

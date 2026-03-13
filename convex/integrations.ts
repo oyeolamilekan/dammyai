@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 import { internalMutation, mutation, query } from './_generated/server'
+import { getRequiredEnv } from './lib/env'
 import { getUserId, requireUserId } from './lib/session'
 
 const providerValidator = v.union(
@@ -23,7 +24,7 @@ export const listIntegrations = query({
     const docs = await ctx.db
       .query('integrations')
       .withIndex('userId', (q) => q.eq('userId', userId))
-      .collect()
+      .take(10)
 
     return docs.map((doc) => ({
       id: doc._id,
@@ -133,12 +134,11 @@ export const createTelegramLink = mutation({
       )
       .unique()
 
-    const linkingCode = crypto.randomUUID().slice(0, 8)
-    const env = (globalThis as { process?: { env?: Record<string, string> } })
-      .process?.env
-    const botUsername = env?.TELEGRAM_BOT_USERNAME ?? 'ubtter'
-
-    console.log(botUsername)
+    const botUsername = getRequiredEnv('TELEGRAM_BOT_USERNAME')
+    const linkingCode =
+      existing?.linkingCode && !existing.telegramChatId
+        ? existing.linkingCode
+        : crypto.randomUUID().slice(0, 8)
 
     if (existing) {
       await ctx.db.patch('integrations', existing._id, {

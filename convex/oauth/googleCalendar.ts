@@ -6,11 +6,11 @@ const SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
 ].join(' ')
 
-export const googleCalendarAuth = httpAction(async (_ctx, request) => {
+export const googleCalendarAuth = httpAction((_ctx, request) => {
   const url = new URL(request.url)
   const userId = url.searchParams.get('userId')
   if (!userId) {
-    return new Response('Missing userId', { status: 400 })
+    return Promise.resolve(new Response('Missing userId', { status: 400 }))
   }
 
   const redirectUri =
@@ -30,12 +30,14 @@ export const googleCalendarAuth = httpAction(async (_ctx, request) => {
     state: userId,
   })
 
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`,
-    },
-  })
+  return Promise.resolve(
+    new Response(null, {
+      status: 302,
+      headers: {
+        Location: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`,
+      },
+    }),
+  )
 })
 
 export const googleCalendarCallback = httpAction(async (ctx, request) => {

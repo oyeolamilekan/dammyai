@@ -37,17 +37,16 @@ export const listConversations = query({
     const rows = await ctx.db
       .query('messages')
       .withIndex('userId_createdAt', (q) => q.eq('userId', userId))
+      .order('desc')
       .collect()
 
-    const sorted = rows
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .map((row) => ({
-        id: row._id,
-        role: row.role,
-        content: row.content,
-        toolName: row.toolName ?? null,
-        createdAt: new Date(row.createdAt).toISOString(),
-      }))
+    const sorted = rows.map((row) => ({
+      id: row._id,
+      role: row.role,
+      content: row.content,
+      toolName: row.toolName ?? null,
+      createdAt: new Date(row.createdAt).toISOString(),
+    }))
 
     return paginate(sorted, page, limit)
   },
@@ -59,19 +58,17 @@ export const listCoreMemories = query({
     const userId = await requireUserId(ctx)
     const rows = await ctx.db
       .query('coreMemories')
-      .withIndex('userId', (q) => q.eq('userId', userId))
+      .withIndex('userId_key', (q) => q.eq('userId', userId))
       .collect()
 
-    return rows
-      .sort((a, b) => a.key.localeCompare(b.key))
-      .map((row) => ({
-        id: row._id,
-        key: row.key,
-        value: row.value,
-        source: row.source ?? 'user',
-        createdAt: new Date(row.createdAt).toISOString(),
-        updatedAt: new Date(row.updatedAt).toISOString(),
-      }))
+    return rows.map((row) => ({
+      id: row._id,
+      key: row.key,
+      value: row.value,
+      source: row.source ?? 'user',
+      createdAt: new Date(row.createdAt).toISOString(),
+      updatedAt: new Date(row.updatedAt).toISOString(),
+    }))
   },
 })
 
@@ -109,7 +106,7 @@ export const createOrUpdateCoreMemory = mutation({
     const allRows = await ctx.db
       .query('coreMemories')
       .withIndex('userId', (q) => q.eq('userId', userId))
-      .collect()
+      .take(50)
     if (allRows.length >= 50) {
       throw new Error('Maximum of 50 core memories reached')
     }
@@ -146,18 +143,17 @@ export const listArchivalMemories = query({
     const limit = normalizeLimit(args.limit)
     const rows = await ctx.db
       .query('archivalMemories')
-      .withIndex('userId', (q) => q.eq('userId', userId))
+      .withIndex('userId_updatedAt', (q) => q.eq('userId', userId))
+      .order('desc')
       .collect()
 
-    const sorted = rows
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .map((row) => ({
-        id: row._id,
-        content: row.content,
-        tags: row.tags ?? null,
-        createdAt: new Date(row.createdAt).toISOString(),
-        updatedAt: new Date(row.updatedAt).toISOString(),
-      }))
+    const sorted = rows.map((row) => ({
+      id: row._id,
+      content: row.content,
+      tags: row.tags ?? null,
+      createdAt: new Date(row.createdAt).toISOString(),
+      updatedAt: new Date(row.updatedAt).toISOString(),
+    }))
 
     return paginate(sorted, page, limit)
   },

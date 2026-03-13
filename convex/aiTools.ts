@@ -1,10 +1,59 @@
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { internalMutation, internalQuery } from './_generated/server'
+import type { MutationCtx } from './_generated/server'
 
 const taskTypeValidator = v.union(v.literal('one_off'), v.literal('recurring'))
 const now = () => Date.now()
 const MIN_INTERVAL_MS = 60_000
+
+const getArchivalMemoryForUser = async (
+  ctx: MutationCtx,
+  userId: string,
+  id: string,
+) => {
+  const memoryId = ctx.db.normalizeId('archivalMemories', id)
+  if (!memoryId) {
+    return null
+  }
+  const existing = await ctx.db.get('archivalMemories', memoryId)
+  if (!existing || existing.userId !== userId) {
+    return null
+  }
+  return existing
+}
+
+const getScheduledTaskForUser = async (
+  ctx: MutationCtx,
+  userId: string,
+  id: string,
+) => {
+  const taskId = ctx.db.normalizeId('scheduledTasks', id)
+  if (!taskId) {
+    return null
+  }
+  const existing = await ctx.db.get('scheduledTasks', taskId)
+  if (!existing || existing.userId !== userId) {
+    return null
+  }
+  return existing
+}
+
+const getResearchJobForUser = async (
+  ctx: MutationCtx,
+  userId: string,
+  id: string,
+) => {
+  const researchId = ctx.db.normalizeId('backgroundResearch', id)
+  if (!researchId) {
+    return null
+  }
+  const existing = await ctx.db.get('backgroundResearch', researchId)
+  if (!existing || existing.userId !== userId) {
+    return null
+  }
+  return existing
+}
 
 export const saveCoreMemory = internalMutation({
   args: {
@@ -37,7 +86,7 @@ export const saveCoreMemory = internalMutation({
     const allRows = await ctx.db
       .query('coreMemories')
       .withIndex('userId', (q) => q.eq('userId', args.userId))
-      .collect()
+      .take(50)
     if (allRows.length >= 50) {
       return 'Cannot save: maximum of 50 core memories reached.'
     }
@@ -112,8 +161,9 @@ export const searchArchivalMemories = internalQuery({
 
     const rows = await ctx.db
       .query('archivalMemories')
-      .withIndex('userId', (q) => q.eq('userId', args.userId))
-      .collect()
+      .withIndex('userId_updatedAt', (q) => q.eq('userId', args.userId))
+      .order('desc')
+      .take(Math.min(100, Math.max(limit * 5, 25)))
 
     const scored = rows
       .map((row) => {
@@ -124,7 +174,10 @@ export const searchArchivalMemories = internalQuery({
         return { row, matchCount }
       })
       .filter((entry) => entry.matchCount > 0)
-      .sort((a, b) => b.matchCount - a.matchCount || b.row.updatedAt - a.row.updatedAt)
+      .sort(
+        (a, b) =>
+          b.matchCount - a.matchCount || b.row.updatedAt - a.row.updatedAt,
+      )
       .slice(0, limit)
 
     return scored.map((entry) => ({
@@ -141,11 +194,7 @@ export const deleteArchivalMemory = internalMutation({
     id: v.string(),
   },
   handler: async (ctx, args) => {
-    const rows = await ctx.db
-      .query('archivalMemories')
-      .withIndex('userId', (q) => q.eq('userId', args.userId))
-      .collect()
-    const existing = rows.find((row) => String(row._id) === args.id)
+    const existing = await getArchivalMemoryForUser(ctx, args.userId, args.id)
     if (!existing) {
       return false
     }
@@ -246,11 +295,7 @@ export const updateScheduledTask = internalMutation({
     enabled: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const rows = await ctx.db
-      .query('scheduledTasks')
-      .withIndex('userId', (q) => q.eq('userId', args.userId))
-      .collect()
-    const existing = rows.find((row) => String(row._id) === args.id)
+    const existing = await getScheduledTaskForUser(ctx, args.userId, args.id)
     if (!existing) {
       throw new Error('Task not found')
     }
@@ -282,11 +327,7 @@ export const deleteScheduledTask = internalMutation({
     id: v.string(),
   },
   handler: async (ctx, args) => {
-    const rows = await ctx.db
-      .query('scheduledTasks')
-      .withIndex('userId', (q) => q.eq('userId', args.userId))
-      .collect()
-    const existing = rows.find((row) => String(row._id) === args.id)
+    const existing = await getScheduledTaskForUser(ctx, args.userId, args.id)
     if (!existing) {
       return false
     }
@@ -334,14 +375,10 @@ export const cancelBackgroundResearch = internalMutation({
     } | null = null
 
     if (args.id) {
-      const rows = await ctx.db
-        .query('backgroundResearch')
-        .withIndex('userId_createdAt', (q) => q.eq('userId', args.userId))
-        .collect()
-      const row = rows.find((entry) => String(entry._id) === args.id)
+      const row = await getResearchJobForUser(ctx, args.userId, args.id)
       target = row
         ? {
-            _id: String(row._id),
+            _id: row._id,
             status: row.status,
             userId: row.userId,
           }
@@ -393,11 +430,7 @@ export const cancelBackgroundResearch = internalMutation({
       return false
     }
 
-    const rows = await ctx.db
-      .query('backgroundResearch')
-      .withIndex('userId_createdAt', (q) => q.eq('userId', args.userId))
-      .collect()
-    const row = rows.find((entry) => String(entry._id) === target._id)
+    const row = await getResearchJobForUser(ctx, args.userId, target._id)
     if (!row) {
       return false
     }

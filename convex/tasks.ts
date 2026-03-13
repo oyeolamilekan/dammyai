@@ -59,23 +59,22 @@ export const listTasks = query({
     const rows = await ctx.db
       .query('scheduledTasks')
       .withIndex('userId', (q) => q.eq('userId', userId))
+      .order('desc')
       .collect()
 
-    const sorted = rows
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .map((row) => ({
-        id: row._id,
-        prompt: row.prompt,
-        type: row.type,
-        intervalMs: row.intervalMs ?? null,
-        runAt: row.runAt ? new Date(row.runAt).toISOString() : null,
-        nextRunAt: row.nextRunAt ? new Date(row.nextRunAt).toISOString() : null,
-        lastRunAt: row.lastRunAt ? new Date(row.lastRunAt).toISOString() : null,
-        lastResult: row.lastResult ?? null,
-        lastLogId: row.lastLogId ?? null,
-        enabled: row.enabled,
-        createdAt: new Date(row.createdAt).toISOString(),
-      }))
+    const sorted = rows.map((row) => ({
+      id: row._id,
+      prompt: row.prompt,
+      type: row.type,
+      intervalMs: row.intervalMs ?? null,
+      runAt: row.runAt ? new Date(row.runAt).toISOString() : null,
+      nextRunAt: row.nextRunAt ? new Date(row.nextRunAt).toISOString() : null,
+      lastRunAt: row.lastRunAt ? new Date(row.lastRunAt).toISOString() : null,
+      lastResult: row.lastResult ?? null,
+      lastLogId: row.lastLogId ?? null,
+      enabled: row.enabled,
+      createdAt: new Date(row.createdAt).toISOString(),
+    }))
 
     return paginate(sorted, page, limit)
   },
@@ -203,8 +202,8 @@ export const getDueTasks = internalQuery({
       .withIndex('enabled_nextRunAt', (q) =>
         q.eq('enabled', true).lte('nextRunAt', args.now),
       )
-      .collect()
-    return due.slice(0, args.limit ?? 20)
+      .take(Math.min(100, Math.max(1, args.limit ?? 20)))
+    return due
   },
 })
 
@@ -237,10 +236,11 @@ export const applyTaskExecution = internalMutation({
 })
 
 const TASK_SYSTEM_PROMPT =
-  'You are executing an automated scheduled task. The user is NOT present — do NOT ask questions, clarify, or confirm. ' +
-  'Just execute the task directly and deliver the result. Be concise and action-oriented. ' +
-  'If the task says "remind", compose and send the reminder message immediately via Telegram or include it in your response. ' +
-  'Never wait for user input.'
+  'You are a thoughtful personal assistant gently following up on something the user scheduled earlier. ' +
+  'The user is NOT present — do NOT ask questions, clarify, or confirm. Just carry out the task and share the result. ' +
+  'Keep your tone warm, friendly, and conversational — like a helpful friend giving a soft nudge, not a robot filing a report. ' +
+  'If the task involves a reminder, write it as a kind, encouraging note (e.g. "Hey, just a gentle reminder…"). ' +
+  'Be concise but human. Never wait for user input.'
 
 const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
   const task = await ctx.runQuery(internal.tasks.getTaskById, { id })
@@ -297,7 +297,7 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
       { userId: task.userId },
     )
     if (integration?.telegramChatId) {
-      const header = `📋 *Scheduled Task Result*\n_${task.prompt}_\n\n`
+      const header = `👋 *Hey, quick update for you*\n_${task.prompt}_\n\n`
       await sendTelegramMessage(integration.telegramChatId, header + result)
     }
   } catch {

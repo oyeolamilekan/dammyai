@@ -3,11 +3,11 @@ import { getRequiredEnv } from '../lib/env'
 
 const SCOPES = 'data:read_write,data:delete'
 
-export const todoistAuth = httpAction(async (_ctx, request) => {
+export const todoistAuth = httpAction((_ctx, request) => {
   const url = new URL(request.url)
   const userId = url.searchParams.get('userId')
   if (!userId) {
-    return new Response('Missing userId', { status: 400 })
+    return Promise.resolve(new Response('Missing userId', { status: 400 }))
   }
 
   const clientId = getRequiredEnv('TODOIST_CLIENT_ID')
@@ -18,12 +18,14 @@ export const todoistAuth = httpAction(async (_ctx, request) => {
     state: userId,
   })
 
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: `https://app.todoist.com/oauth/authorize?${params.toString()}`,
-    },
-  })
+  return Promise.resolve(
+    new Response(null, {
+      status: 302,
+      headers: {
+        Location: `https://app.todoist.com/oauth/authorize?${params.toString()}`,
+      },
+    }),
+  )
 })
 
 export const todoistCallback = httpAction(async (ctx, request) => {
