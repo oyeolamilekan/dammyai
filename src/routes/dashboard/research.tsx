@@ -64,47 +64,6 @@ function downloadReport(html: string, title: string) {
   setTimeout(() => URL.revokeObjectURL(url), 60000)
 }
 
-/** Builds a self-contained HTML document for rendering inside an iframe. */
-function buildReportDocument(html: string) {
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-  *, *::before, *::after { box-sizing: border-box; }
-  body {
-    font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    margin: 0; padding: 24px 28px; line-height: 1.7; color: #e4e4e7; background: transparent;
-    font-size: 14px;
-  }
-  h1, h2, h3, h4 { color: #f4f4f5; margin-top: 28px; margin-bottom: 12px; line-height: 1.3; }
-  h1 { font-size: 1.5em; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; }
-  h2 { font-size: 1.25em; border-bottom: 1px solid #3f3f46; padding-bottom: 8px; }
-  h3 { font-size: 1.1em; }
-  p { margin: 0 0 14px; }
-  ul, ol { margin: 0 0 14px; padding-left: 22px; }
-  li { margin-bottom: 5px; }
-  blockquote {
-    border-left: 3px solid #3b82f6; margin: 14px 0; padding: 10px 16px;
-    background: rgba(59,130,246,0.08); border-radius: 0 6px 6px 0; color: #d4d4d8;
-  }
-  strong { color: #f4f4f5; }
-  a { color: #60a5fa; text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
-  th, td { border: 1px solid #3f3f46; padding: 8px 12px; text-align: left; font-size: 13px; }
-  th { background: #27272a; font-weight: 600; color: #f4f4f5; }
-  tr:nth-child(even) { background: rgba(63,63,70,0.3); }
-  code { background: #27272a; padding: 2px 5px; border-radius: 3px; font-size: 0.9em; }
-  pre { background: #18181b; padding: 14px; border-radius: 6px; overflow-x: auto; }
-  pre code { background: none; padding: 0; }
-  hr { border: none; border-top: 1px solid #3f3f46; margin: 20px 0; }
-</style>
-</head>
-<body>${html}</body>
-</html>`
-}
-
 /** Lazy-loads the full report and displays it in a modal. */
 function ReportModal({
   jobId,
@@ -199,11 +158,9 @@ function ReportModal({
               Report not available.
             </p>
           ) : (
-            <iframe
-              srcDoc={buildReportDocument(report)}
-              title="Research report"
-              className="w-full h-full border-0"
-              sandbox="allow-same-origin"
+            <div
+              className="research-report prose prose-zinc dark:prose-invert max-w-none p-6"
+              dangerouslySetInnerHTML={{ __html: report }}
             />
           )}
         </div>

@@ -10,6 +10,13 @@ const getEnv = () =>
   (globalThis as { process?: { env?: Record<string, string | undefined> } })
     .process?.env ?? {}
 
+/**
+ * Purpose: Creates the Telegram messaging tool that sends proactive assistant messages to the user's linked Telegram chat.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
 export function createSendTelegramMessageTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:

@@ -27,6 +27,13 @@ const paginate = <T>(items: Array<T>, page: number, limit: number) => {
   }
 }
 
+/**
+ * Purpose: Lists paginated conversation history for the signed-in user.
+ * Function type: query
+ * Args:
+ * - page: v.optional(v.number())
+ * - limit: v.optional(v.number())
+ */
 export const listConversations = query({
   args: pageArgs,
   handler: async (ctx, args) => {
@@ -52,6 +59,11 @@ export const listConversations = query({
   },
 })
 
+/**
+ * Purpose: Returns all core memory facts for the signed-in user.
+ * Function type: query
+ * Args: none
+ */
 export const listCoreMemories = query({
   args: {},
   handler: async (ctx) => {
@@ -72,6 +84,13 @@ export const listCoreMemories = query({
   },
 })
 
+/**
+ * Purpose: Creates a new core memory or updates an existing one by key for the signed-in user.
+ * Function type: mutation
+ * Args:
+ * - key: v.string()
+ * - value: v.string()
+ */
 export const createOrUpdateCoreMemory = mutation({
   args: { key: v.string(), value: v.string() },
   handler: async (ctx, args) => {
@@ -122,6 +141,12 @@ export const createOrUpdateCoreMemory = mutation({
   },
 })
 
+/**
+ * Purpose: Deletes a single core memory owned by the signed-in user.
+ * Function type: mutation
+ * Args:
+ * - id: v.id('coreMemories')
+ */
 export const deleteCoreMemory = mutation({
   args: { id: v.id('coreMemories') },
   handler: async (ctx, args) => {
@@ -135,6 +160,13 @@ export const deleteCoreMemory = mutation({
   },
 })
 
+/**
+ * Purpose: Lists paginated archival memories for the signed-in user, newest first.
+ * Function type: query
+ * Args:
+ * - page: v.optional(v.number())
+ * - limit: v.optional(v.number())
+ */
 export const listArchivalMemories = query({
   args: pageArgs,
   handler: async (ctx, args) => {
@@ -159,6 +191,12 @@ export const listArchivalMemories = query({
   },
 })
 
+/**
+ * Purpose: Deletes one archival memory owned by the signed-in user.
+ * Function type: mutation
+ * Args:
+ * - id: v.id('archivalMemories')
+ */
 export const deleteArchivalMemory = mutation({
   args: { id: v.id('archivalMemories') },
   handler: async (ctx, args) => {

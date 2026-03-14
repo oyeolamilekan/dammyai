@@ -70,4 +70,8 @@ http.route({
   handler: notionCallback,
 })
 
+/**
+ * Purpose: Exports the root Convex HTTP router that registers Better Auth routes, Telegram webhooks, and OAuth endpoints.
+ * Value type: http router
+ */
 export default http

@@ -6,6 +6,13 @@ const SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
 ].join(' ')
 
+/**
+ * Purpose: Starts the Google Calendar OAuth flow by redirecting the user to Google's consent screen with the current user ID in state.
+ * Function type: httpAction
+ * Args:
+ * - _ctx: Convex action context
+ * - request: Request
+ */
 export const googleCalendarAuth = httpAction((_ctx, request) => {
   const url = new URL(request.url)
   const userId = url.searchParams.get('userId')
@@ -40,6 +47,13 @@ export const googleCalendarAuth = httpAction((_ctx, request) => {
   )
 })
 
+/**
+ * Purpose: Completes the Google Calendar OAuth callback, exchanges the auth code for tokens, stores the integration, and redirects back to the dashboard.
+ * Function type: httpAction
+ * Args:
+ * - ctx: Convex action context
+ * - request: Request
+ */
 export const googleCalendarCallback = httpAction(async (ctx, request) => {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')

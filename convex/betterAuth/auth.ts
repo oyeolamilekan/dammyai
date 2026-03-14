@@ -10,6 +10,10 @@ import type { DataModel } from '../_generated/dataModel'
 
 const env = (globalThis as any).process?.env ?? {}
 
+/**
+ * Purpose: Creates the Better Auth Convex component client used to register auth routes and access the adapter.
+ * Value type: Better Auth component client
+ */
 export const authComponent = createClient<DataModel, typeof schema>(
   (components as { betterAuth: any }).betterAuth,
   {
@@ -18,6 +22,12 @@ export const authComponent = createClient<DataModel, typeof schema>(
   },
 )
 
+/**
+ * Purpose: Builds the Better Auth options object for a given Convex context, including the Convex adapter and plugin wiring.
+ * Function type: helper factory
+ * Args:
+ * - ctx: GenericCtx<DataModel>
+ */
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
   ({
     appName: 'DammyAI',
@@ -32,8 +42,18 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     plugins: [convex({ authConfig })],
   }) satisfies BetterAuthOptions
 
+/**
+ * Purpose: Provides a context-free Better Auth options object for static consumers that only need the configuration shape.
+ * Value type: Better Auth options
+ */
 export const options = createAuthOptions({} as GenericCtx<DataModel>)
 
+/**
+ * Purpose: Instantiates the Better Auth server for the current Convex context.
+ * Function type: helper factory
+ * Args:
+ * - ctx: GenericCtx<DataModel>
+ */
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
   return betterAuth(createAuthOptions(ctx))
 }

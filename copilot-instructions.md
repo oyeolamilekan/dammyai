@@ -1,6 +1,6 @@
 # DammyAI Architecture Guide
 
-> Last Updated: March 2025
+> Last Updated: March 2026
 > This is a comprehensive guide to the DammyAI codebase structure, patterns, and conventions for context-aware development.
 
 ## Table of Contents
@@ -13,7 +13,8 @@
 7. [Styling](#styling)
 8. [State Management](#state-management)
 9. [External Integrations](#external-integrations)
-10. [Project Organization](#project-organization)
+10. [Standalone PDF Worker](#standalone-pdf-worker)
+11. [Project Organization](#project-organization)
 
 ---
 
@@ -49,6 +50,7 @@ src/routes/
 - **Protected Routes**: Use `requireAuth` guard from `src/lib/require-auth.ts` in `beforeLoad`
 - **Route Params**: Search params validated via `validateSearch()` in route definitions (e.g., login redirect)
 - **Preloading**: Default preload strategy is `'intent'` for faster navigation
+- **Research Viewer**: `src/routes/dashboard/research.tsx` renders full report HTML in-app through the themed `.research-report` container
 
 ### Navigation Configuration
 **Main sidebar navigation** (`AppSidebar` component):
@@ -268,6 +270,7 @@ crons.interval('process pending research jobs', { minutes: 1 }, internal.researc
 - `processResearchJob()` (internalAction) - Execute deep research with checkpoints
 - `markResearchCompleted()`, `markResearchFailed()` - Status updates
 - `addCheckpoint()` - Add progress checkpoint
+- Sends wrapped report HTML to the standalone PDF API before Telegram PDF delivery
 
 #### `convex/lib/deepResearch.ts` - Research Algorithm
 - Multi-step research process with:
@@ -340,10 +343,15 @@ crons.interval('process pending research jobs', { minutes: 1 }, internal.researc
 - Plan research steps
 - Execute parallel searches
 - Synthesize results into summary & HTML report
+- Wrap report HTML with print-oriented PDF styles and pagination rules
 
-**`pdfGenerator.ts`** - PDF generation
-- Convert HTML research reports to PDF
-- Block content extraction for reports
+**`pdfApi.ts`** - Standalone PDF API client
+- Calls `${PDF_API_BASE_URL}/pdf`
+- Used by Convex research delivery instead of local PDF rendering
+
+**`pdfGenerator.ts`** - Legacy/local PDF generation
+- Older in-repo PDF rendering helper
+- Prefer the standalone `api/pdf` worker for current research PDF delivery
 
 **`telegramFormat.ts`** - Markdown to Telegram HTML conversion
 - Handles bold, italic, links, code blocks
@@ -935,12 +943,62 @@ All OAuth callbacks (`convex/oauth/*.ts`) follow this pattern:
 
 ---
 
+## Standalone PDF Worker
+
+### Overview
+- **Location**: `api/pdf/`
+- **Runtime**: Hono on Cloudflare Workers
+- **Renderer**: Cloudflare Browser Rendering via `@cloudflare/puppeteer`
+- **Purpose**: Convert HTML into high-fidelity PDFs outside Convex
+
+### File Layout
+```text
+api/pdf/
+├── src/app.ts         # Hono routes and error handling
+├── src/index.ts       # Worker entrypoint and exports
+├── src/render.ts      # Browser-based HTML -> PDF rendering
+├── src/request.ts     # Request parsing and filename normalization
+├── src/types.ts       # Shared worker types and constants
+├── wrangler.jsonc     # Cloudflare Worker config
+└── README.md          # Worker-specific docs
+```
+
+### API Contract
+- `GET /` - Service metadata
+- `GET /health` - Health check
+- `POST /pdf` - Accepts HTML and returns a PDF
+
+`POST /pdf` supports:
+- JSON body: `{ html, title?, fileName? }`
+- raw HTML body with optional `title` and `fileName` query params
+
+### Operational Notes
+- Use `bun run dev:pdf-api` for local worker development
+- Use `bun run deploy:pdf-api` for deployment
+- Worker config uses `nodejs_compat`
+- Browser binding name is `BROWSER`
+- Local development uses `remote: true`, so it depends on Cloudflare's remote browser runtime
+- Convex integrates with this worker through `PDF_API_BASE_URL`
+
+---
+
 ## Project Organization
 
 ### Directory Structure
 
 ```
 dammyai/
+├── api/
+│   └── pdf/                       # Standalone HTML-to-PDF worker
+│       ├── src/
+│       │   ├── app.ts            # Hono app and routes
+│       │   ├── index.ts          # Entrypoint and exports
+│       │   ├── render.ts         # Browser rendering
+│       │   ├── request.ts        # Request parsing
+│       │   └── types.ts          # Shared types
+│       ├── wrangler.jsonc        # Cloudflare worker config
+│       └── README.md             # Local docs
+│
 ├── public/                        # Static assets (favicons, etc.)
 ├── src/
 │   ├── routes/                    # TanStack Router file-based routes
@@ -988,7 +1046,8 @@ dammyai/
 │   ├── lib/                       # Utilities
 │   │   ├── google.ts              # OAuth token refresh
 │   │   ├── deepResearch.ts        # Research algorithm
-│   │   ├── pdfGenerator.ts        # PDF generation
+│   │   ├── pdfApi.ts              # Standalone PDF API client
+│   │   ├── pdfGenerator.ts        # Legacy/local PDF generation helper
 │   │   ├── telegramFormat.ts      # Markdown to HTML
 │   │   ├── env.ts                 # Environment variables
 │   │   └── session.ts             # Auth helpers
@@ -1050,6 +1109,7 @@ VITE_CONVEX_URL         # Convex deployment URL
 VITE_CONVEX_SITE_URL    # Convex site URL (for OAuth)
 BETTER_AUTH_SECRET      # Auth secret (32+ chars)
 AI_GATEWAY_API_KEY      # OpenAI or compatible endpoint
+PDF_API_BASE_URL        # Standalone PDF worker base URL for Convex delivery
 ```
 
 **Optional**:

@@ -164,8 +164,8 @@ async function extractLearnings(
 }
 
 /**
- * Perform deep research: generate queries, search the web in parallel,
- * extract learnings, do follow-up rounds, then generate a structured HTML report.
+ * Purpose: Describes the progress callback signature used to stream status updates during deep research runs.
+ * Type kind: type alias
  */
 export type ProgressCallback = (
   step: string,
@@ -176,6 +176,16 @@ export type ProgressCallback = (
 // Thread model preference through deep research without changing every function signature
 let _researchModelOverride: string | undefined
 
+/**
+ * Purpose: Runs the full deep-research workflow, including query generation, parallel search, learning extraction, follow-up rounds, and final report generation.
+ * Function type: helper
+ * Args:
+ * - query: string
+ * - depth: number
+ * - breadth: number
+ * - modelPreference: string | undefined
+ * - onProgress: ProgressCallback | undefined
+ */
 export async function deepResearch(
   query: string,
   depth = 2,
@@ -326,8 +336,19 @@ You are an expert research analyst. Today's date is ${new Date().toISOString()}.
 ## Formatting
 - Output clean, semantic HTML (<h1>, <h2>, <p>, <ul>, <blockquote>, etc.).
 - Start directly with HTML tags — no markdown fences, no backticks wrapper.
+- Do not include inline styles, classes for visual layout, spacer elements, fixed-height containers, or page-break directives.
+- Do not wrap sections in full-page blocks or elements that reserve large empty areas.
 - The report should read like an authoritative, professional analysis.
 `.trim()
+
+function normalizeReportHtmlForPdf(content: string): string {
+  return content
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<\/?(html|head|body)[^>]*>/gi, '')
+    .replace(/\sstyle=(['"]).*?\1/gi, '')
+    .trim()
+}
 
 async function generateReport(
   research: Research,
@@ -383,9 +404,15 @@ Also provide a very short plain-text summary (1–2 sentences) of the key takeaw
 }
 
 /**
- * Wrap the HTML report in a full styled HTML document suitable for PDF conversion.
+ * Purpose: Wraps report HTML in a full styled document shell so it can be rendered cleanly as a PDF.
+ * Function type: helper
+ * Args:
+ * - title: string
+ * - content: string
  */
 export function wrapReportHtml(title: string, content: string): string {
+  const normalizedContent = normalizeReportHtmlForPdf(content)
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -393,53 +420,158 @@ export function wrapReportHtml(title: string, content: string): string {
     <title>${title}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        @page {
+            size: A4;
+            margin: 18mm 16mm;
+        }
+
+        html {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
         body {
             font-family: 'Inter', Arial, Helvetica, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px;
-            line-height: 1.6;
-            color: #333;
+            margin: 0;
+            line-height: 1.65;
+            color: #1f2937;
+            font-size: 12pt;
+            background: #fff;
         }
-        h1, h2, h3, h4 { color: #2c3e50; margin-top: 30px; font-weight: 700; }
-        h1 { border-bottom: 3px solid #3498db; padding-bottom: 15px; font-size: 2.2em; }
-        h2 { border-bottom: 1px solid #bdc3c7; padding-bottom: 10px; font-size: 1.8em; }
-        h3 { font-size: 1.4em; }
-        p { margin-bottom: 15px; }
-        ul, ol { margin-left: 20px; margin-bottom: 15px; }
-        li { margin-bottom: 8px; }
+
+        .report {
+            max-width: none;
+        }
+
+        h1, h2, h3, h4 {
+            color: #1f2937;
+            font-weight: 700;
+            line-height: 1.25;
+            break-after: avoid-page;
+            page-break-after: avoid;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        h1 {
+            margin: 0 0 18px;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 12px;
+            font-size: 24pt;
+        }
+
+        h2 {
+            margin: 28px 0 12px;
+            border-bottom: 1px solid #d1d5db;
+            padding-bottom: 8px;
+            font-size: 18pt;
+        }
+
+        h3 {
+            margin: 22px 0 10px;
+            font-size: 14pt;
+        }
+
+        h4 {
+            margin: 18px 0 8px;
+            font-size: 12.5pt;
+        }
+
+        p, ul, ol, blockquote, table, hr {
+            margin: 0 0 14px;
+        }
+
+        p {
+            orphans: 3;
+            widows: 3;
+        }
+
+        ul, ol {
+            padding-left: 24px;
+            break-before: auto;
+            page-break-before: auto;
+        }
+
+        li {
+            margin-bottom: 8px;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
         blockquote {
-            border-left: 4px solid #3498db;
-            margin: 20px 0;
-            padding: 15px 20px;
-            background-color: #f8f9fa;
+            border-left: 4px solid #2563eb;
+            padding: 12px 16px;
+            background-color: #f8fafc;
+            border-radius: 0 8px 8px 0;
             font-style: italic;
+            break-inside: avoid;
+            page-break-inside: avoid;
         }
-        strong { color: #2c3e50; }
-        em { color: #7f8c8d; }
-        a { color: #3498db; text-decoration: none; }
+
+        strong {
+            color: #111827;
+        }
+
+        em, .date {
+            color: #6b7280;
+        }
+
+        a {
+            color: #2563eb;
+            text-decoration: none;
+            word-break: break-word;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+        }
+
         table {
             border-collapse: collapse;
             width: 100%;
-            margin: 20px 0;
-            border: 1px solid #bdc3c7;
+            border: 1px solid #d1d5db;
+            font-size: 10.5pt;
         }
+
+        thead {
+            display: table-header-group;
+        }
+
+        tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
         th, td {
-            border: 1px solid #bdc3c7;
-            padding: 12px;
+            border: 1px solid #d1d5db;
+            padding: 10px;
             text-align: left;
+            vertical-align: top;
         }
+
         th {
-            background-color: #ecf0f1;
+            background-color: #f3f4f6;
             font-weight: bold;
-            color: #2c3e50;
+            color: #1f2937;
         }
-        .date { color: #7f8c8d; font-size: 0.9em; }
+
+        section, article, div {
+            break-before: auto;
+            page-break-before: auto;
+        }
+
+        .date {
+            margin-bottom: 18px;
+            font-size: 10pt;
+        }
     </style>
 </head>
 <body>
-    <div class="date">Generated on ${new Date().toLocaleDateString()}</div>
-    ${content}
+    <main class="report">
+        <div class="date">Generated on ${new Date().toLocaleDateString()}</div>
+        ${normalizedContent}
+    </main>
 </body>
 </html>`
 }

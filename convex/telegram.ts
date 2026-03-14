@@ -1,6 +1,6 @@
 import { internal } from './_generated/api'
 import { httpAction } from './_generated/server'
-import { executeAIPromptImpl } from './aiActions'
+import { executeAIPromptImpl } from './ai/engine'
 import { markdownToTelegramHtml } from './lib/telegramFormat'
 
 const getEnv = () =>

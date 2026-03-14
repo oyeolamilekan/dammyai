@@ -23,6 +23,13 @@ async function refreshGoogleAccessToken(refreshToken: string) {
   return (await res.json()) as { access_token: string; expires_in: number }
 }
 
+/**
+ * Purpose: Returns a Gmail access token for the user, refreshing the stored token first when it is close to expiring.
+ * Function type: helper
+ * Args:
+ * - ctx: Pick<ActionCtx, 'runQuery' | 'runMutation'>
+ * - userId: string
+ */
 export async function getGmailAccessToken(
   ctx: Pick<ActionCtx, 'runQuery' | 'runMutation'>,
   userId: string,
@@ -56,6 +63,13 @@ export async function getGmailAccessToken(
   return record.accessToken
 }
 
+/**
+ * Purpose: Returns a Google Calendar access token for the user, refreshing the stored token first when it is close to expiring.
+ * Function type: helper
+ * Args:
+ * - ctx: Pick<ActionCtx, 'runQuery' | 'runMutation'>
+ * - userId: string
+ */
 export async function getGoogleCalendarAccessToken(
   ctx: Pick<ActionCtx, 'runQuery' | 'runMutation'>,
   userId: string,

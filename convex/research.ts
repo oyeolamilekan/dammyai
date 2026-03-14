@@ -9,13 +9,18 @@ import {
 } from './_generated/server'
 import { deepResearch, wrapReportHtml } from './lib/deepResearch'
 import { getOptionalEnv } from './lib/env'
-import { generatePdf, htmlToBlocks } from './lib/pdfGenerator'
+import { renderPdfViaApi } from './lib/pdfApi'
 import { getUserId, requireUserId } from './lib/session'
 import type { Id } from './_generated/dataModel'
 import type { ActionCtx } from './_generated/server'
 
 const now = () => Date.now()
 
+/**
+ * Purpose: Lists research jobs for the current user, including status, summary, and checkpoints.
+ * Function type: query
+ * Args: none
+ */
 export const listResearch = query({
   args: {},
   handler: async (ctx) => {
@@ -45,6 +50,12 @@ export const listResearch = query({
   },
 })
 
+/**
+ * Purpose: Returns the rendered HTML report for one research job owned by the current user.
+ * Function type: query
+ * Args:
+ * - id: v.id('backgroundResearch')
+ */
 export const getResearchReport = query({
   args: { id: v.id('backgroundResearch') },
   handler: async (ctx, args) => {
@@ -56,6 +67,12 @@ export const getResearchReport = query({
   },
 })
 
+/**
+ * Purpose: Creates a new background research job and schedules it for processing.
+ * Function type: mutation
+ * Args:
+ * - prompt: v.string()
+ */
 export const createResearchTask = mutation({
   args: { prompt: v.string() },
   handler: async (ctx, args) => {
@@ -77,6 +94,12 @@ export const createResearchTask = mutation({
   },
 })
 
+/**
+ * Purpose: Loads a research job by ID for internal processing and cancellation checks.
+ * Function type: internalQuery
+ * Args:
+ * - id: v.id('backgroundResearch')
+ */
 export const getResearchById = internalQuery({
   args: { id: v.id('backgroundResearch') },
   handler: async (ctx, args) => {
@@ -84,6 +107,11 @@ export const getResearchById = internalQuery({
   },
 })
 
+/**
+ * Purpose: Returns the next batch of pending research jobs for cron-driven workers.
+ * Function type: internalQuery
+ * Args: none
+ */
 export const getPendingResearchJobs = internalQuery({
   args: {},
   handler: async (ctx) => {
@@ -210,18 +238,14 @@ async function sendResearchToTelegram(
       }),
     })
 
-    // Wrap raw report in styled HTML document, then generate PDF from blocks
+    // Wrap raw report in styled HTML document, then render the PDF via the standalone service
     const wrappedHtml = wrapReportHtml(prompt, rawReport)
-    const blocks = htmlToBlocks(wrappedHtml)
-    const pdfBytes = await generatePdf(prompt, blocks)
-
-    // Convert Uint8Array to a clean ArrayBuffer to avoid offset issues
-    const buffer = pdfBytes.buffer.slice(
-      pdfBytes.byteOffset,
-      pdfBytes.byteOffset + pdfBytes.byteLength,
-    ) as ArrayBuffer
-
     const fileName = `research-${Date.now()}.pdf`
+    const buffer = await renderPdfViaApi({
+      html: wrappedHtml,
+      title: prompt,
+      fileName,
+    })
     await sendAction(chatId, 'upload_document')
     await sendTelegramDocument(
       chatId,
@@ -234,6 +258,12 @@ async function sendResearchToTelegram(
   }
 }
 
+/**
+ * Purpose: Marks a research job as actively running before deep research begins.
+ * Function type: internalMutation
+ * Args:
+ * - id: v.id('backgroundResearch')
+ */
 export const markResearchRunning = internalMutation({
   args: { id: v.id('backgroundResearch') },
   handler: async (ctx, args) => {
@@ -243,6 +273,14 @@ export const markResearchRunning = internalMutation({
   },
 })
 
+/**
+ * Purpose: Stores the completed research report and summary after a successful run.
+ * Function type: internalMutation
+ * Args:
+ * - id: v.id('backgroundResearch')
+ * - result: v.string()
+ * - summary: v.optional(v.string())
+ */
 export const markResearchCompleted = internalMutation({
   args: {
     id: v.id('backgroundResearch'),
@@ -260,6 +298,13 @@ export const markResearchCompleted = internalMutation({
   },
 })
 
+/**
+ * Purpose: Records a terminal failure for a research job.
+ * Function type: internalMutation
+ * Args:
+ * - id: v.id('backgroundResearch')
+ * - error: v.string()
+ */
 export const markResearchFailed = internalMutation({
   args: { id: v.id('backgroundResearch'), error: v.string() },
   handler: async (ctx, args) => {
@@ -271,6 +316,15 @@ export const markResearchFailed = internalMutation({
   },
 })
 
+/**
+ * Purpose: Appends or updates a progress checkpoint shown in the research dashboard timeline.
+ * Function type: internalMutation
+ * Args:
+ * - id: v.id('backgroundResearch')
+ * - step: v.string()
+ * - message: v.string()
+ * - status: v.union( v.literal('running'), v.literal('done'), v.literal('error'), )
+ */
 export const addCheckpoint = internalMutation({
   args: {
     id: v.id('backgroundResearch'),

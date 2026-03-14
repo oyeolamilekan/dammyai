@@ -14,6 +14,11 @@ const providerValidator = v.union(
 
 const now = () => Date.now()
 
+/**
+ * Purpose: Lists the signed-in user's configured integrations for the dashboard.
+ * Function type: query
+ * Args: none
+ */
 export const listIntegrations = query({
   args: {},
   handler: async (ctx) => {
@@ -42,6 +47,19 @@ export const listIntegrations = query({
   },
 })
 
+/**
+ * Purpose: Creates or updates provider credentials for the signed-in user.
+ * Function type: mutation
+ * Args:
+ * - provider: providerValidator
+ * - apiKey: v.optional(v.string())
+ * - accessToken: v.optional(v.string())
+ * - refreshToken: v.optional(v.string())
+ * - tokenExpiresAt: v.optional(v.number())
+ * - scope: v.optional(v.string())
+ * - telegramChatId: v.optional(v.string())
+ * - linkingCode: v.optional(v.string())
+ */
 export const upsertIntegration = mutation({
   args: {
     provider: providerValidator,
@@ -102,6 +120,12 @@ export const upsertIntegration = mutation({
   },
 })
 
+/**
+ * Purpose: Removes one provider integration owned by the signed-in user.
+ * Function type: mutation
+ * Args:
+ * - provider: providerValidator
+ */
 export const deleteIntegration = mutation({
   args: {
     provider: providerValidator,
@@ -123,6 +147,11 @@ export const deleteIntegration = mutation({
   },
 })
 
+/**
+ * Purpose: Creates or refreshes a Telegram linking code and returns the deep link URL.
+ * Function type: mutation
+ * Args: none
+ */
 export const createTelegramLink = mutation({
   args: {},
   handler: async (ctx) => {
@@ -164,7 +193,18 @@ export const createTelegramLink = mutation({
   },
 })
 
-/** Internal mutation used by OAuth callback HTTP actions (no auth context). */
+/**
+ * Purpose: Internal mutation used by OAuth callback HTTP actions (no auth context). Stores OAuth credentials for a provider after an external callback completes.
+ * Function type: internalMutation
+ * Args:
+ * - userId: v.string()
+ * - provider: providerValidator
+ * - apiKey: v.optional(v.string())
+ * - accessToken: v.optional(v.string())
+ * - refreshToken: v.optional(v.string())
+ * - tokenExpiresAt: v.optional(v.number())
+ * - scope: v.optional(v.string())
+ */
 export const upsertIntegrationInternal = internalMutation({
   args: {
     userId: v.string(),

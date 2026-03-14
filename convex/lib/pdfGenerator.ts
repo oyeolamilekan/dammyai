@@ -46,6 +46,12 @@ type Block =
 
 // ── HTML → Blocks parser ─────────────────────────────────────────────────────
 
+/**
+ * Purpose: Parses report HTML into the intermediate block structure used by the PDF renderer.
+ * Function type: helper
+ * Args:
+ * - html: string
+ */
 export function htmlToBlocks(html: string): Array<Block> {
   // Strip full document wrapper
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i)
@@ -351,7 +357,11 @@ class PdfWriter {
 }
 
 /**
- * Generate a PDF buffer from HTML blocks.
+ * Purpose: Generates a PDF byte buffer from the parsed report blocks and document title.
+ * Function type: helper
+ * Args:
+ * - title: string
+ * - blocks: Array<Block>
  */
 export async function generatePdf(
   title: string,
@@ -452,7 +462,12 @@ export async function generatePdf(
 
 // ── Legacy adapter: keep old signature working ───────────────────────────────
 
-/** @deprecated — use htmlToBlocks + generatePdf(title, blocks) directly */
+/**
+ * Purpose: Provides the legacy section-based adapter for older callers that still expect report sections instead of PDF blocks.
+ * Function type: helper
+ * Args:
+ * - html: string
+ */
 export function htmlToSections(
   html: string,
 ): Array<{ heading: string; body: string }> {

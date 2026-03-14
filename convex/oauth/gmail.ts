@@ -6,6 +6,13 @@ const SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
 ].join(' ')
 
+/**
+ * Purpose: Starts the Gmail OAuth flow by redirecting the user to Google's consent screen with the current user ID in state.
+ * Function type: httpAction
+ * Args:
+ * - _ctx: Convex action context
+ * - request: Request
+ */
 export const gmailAuth = httpAction((_ctx, request) => {
   const url = new URL(request.url)
   const userId = url.searchParams.get('userId')
@@ -33,6 +40,13 @@ export const gmailAuth = httpAction((_ctx, request) => {
   )
 })
 
+/**
+ * Purpose: Completes the Gmail OAuth callback, exchanges the auth code for tokens, stores the integration, and redirects back to the dashboard.
+ * Function type: httpAction
+ * Args:
+ * - ctx: Convex action context
+ * - request: Request
+ */
 export const gmailCallback = httpAction(async (ctx, request) => {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')

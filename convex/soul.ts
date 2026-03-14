@@ -5,6 +5,11 @@ import { requireUserId } from './lib/session'
 const DEFAULT_PROMPT =
   'You are a helpful personal assistant. You are friendly, concise, and action-oriented.'
 
+/**
+ * Purpose: Loads the current user's saved assistant configuration for the dashboard settings screen.
+ * Function type: query
+ * Args: none
+ */
 export const getSoul = query({
   args: {},
   handler: async (ctx) => {
@@ -30,6 +35,15 @@ export const getSoul = query({
   },
 })
 
+/**
+ * Purpose: Creates or updates the current user's assistant prompt, model, and search preferences.
+ * Function type: mutation
+ * Args:
+ * - systemPrompt: v.string()
+ * - modelPreference: v.optional(v.string())
+ * - searchProvider: v.optional(v.union(v.literal('exa'), v.literal('tavily')))
+ * - researchModelPreference: v.optional(v.string())
+ */
 export const upsertSoul = mutation({
   args: {
     systemPrompt: v.string(),

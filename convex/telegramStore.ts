@@ -7,6 +7,12 @@ const roleValidator = v.union(
   v.literal('tool'),
 )
 
+/**
+ * Purpose: Finds a pending Telegram integration by its short-lived linking code.
+ * Function type: internalQuery
+ * Args:
+ * - linkingCode: v.string()
+ */
 export const getIntegrationByLinkingCode = internalQuery({
   args: { linkingCode: v.string() },
   handler: async (ctx, args) => {
@@ -19,6 +25,12 @@ export const getIntegrationByLinkingCode = internalQuery({
   },
 })
 
+/**
+ * Purpose: Resolves a Telegram chat ID back to the linked user integration record.
+ * Function type: internalQuery
+ * Args:
+ * - chatId: v.string()
+ */
 export const getIntegrationByChatId = internalQuery({
   args: { chatId: v.string() },
   handler: async (ctx, args) => {
@@ -31,6 +43,12 @@ export const getIntegrationByChatId = internalQuery({
   },
 })
 
+/**
+ * Purpose: Loads the Telegram integration for a user so background jobs can deliver messages.
+ * Function type: internalQuery
+ * Args:
+ * - userId: v.string()
+ */
 export const getIntegrationByUserId = internalQuery({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
@@ -43,6 +61,12 @@ export const getIntegrationByUserId = internalQuery({
   },
 })
 
+/**
+ * Purpose: Loads a user's soul settings for Telegram conversations.
+ * Function type: internalQuery
+ * Args:
+ * - userId: v.string()
+ */
 export const getSoulByUserId = internalQuery({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
@@ -53,6 +77,13 @@ export const getSoulByUserId = internalQuery({
   },
 })
 
+/**
+ * Purpose: Finalizes Telegram account linking by attaching the bot chat ID to the integration record.
+ * Function type: internalMutation
+ * Args:
+ * - integrationId: v.id('integrations')
+ * - chatId: v.string()
+ */
 export const completeTelegramLink = internalMutation({
   args: { integrationId: v.id('integrations'), chatId: v.string() },
   handler: async (ctx, args) => {
@@ -64,6 +95,16 @@ export const completeTelegramLink = internalMutation({
   },
 })
 
+/**
+ * Purpose: Persists a Telegram conversation message into the shared messages history table.
+ * Function type: internalMutation
+ * Args:
+ * - userId: v.string()
+ * - role: roleValidator
+ * - content: v.string()
+ * - toolName: v.optional(v.string())
+ * - toolCallId: v.optional(v.string())
+ */
 export const saveTelegramMessage = internalMutation({
   args: {
     userId: v.string(),

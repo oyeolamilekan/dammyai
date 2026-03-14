@@ -2,6 +2,11 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import { getOptionalEnv } from '../lib/env'
 
+/**
+ * Purpose: Creates the Exa-backed web search tool used to fetch current web results for general AI queries.
+ * Function type: tool factory
+ * Args: none
+ */
 export function createWebSearchTool() {
   return tool({
     description:

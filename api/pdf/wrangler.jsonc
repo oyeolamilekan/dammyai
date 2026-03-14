@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "dammyai-pdf-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "browser": {
+    "binding": "BROWSER",
+    "remote": true
+  },
+  "observability": {
+    "logs": {
+      "enabled": false,
+      "invocation_logs": true
+    }
+  }
+}

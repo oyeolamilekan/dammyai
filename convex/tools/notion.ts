@@ -55,6 +55,13 @@ function extractTitle(page: NotionPage): string {
   return '(Untitled)'
 }
 
+/**
+ * Purpose: Creates the Notion creation tool for adding a new page to an accessible parent page in the user's workspace.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
 export function createNotionDocumentTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description: "Create a new page/document in the user's Notion workspace.",
@@ -140,6 +147,13 @@ export function createNotionDocumentTool(ctx: AILikeCtx, userId: string) {
   })
 }
 
+/**
+ * Purpose: Creates the Notion update tool for renaming, appending to, or archiving an existing page.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
 export function createUpdateNotionDocumentTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
@@ -266,6 +280,13 @@ export function createUpdateNotionDocumentTool(ctx: AILikeCtx, userId: string) {
   })
 }
 
+/**
+ * Purpose: Creates the Notion search tool for finding accessible pages in the user's workspace.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
 export function createSearchNotionTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:

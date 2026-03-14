@@ -17,6 +17,14 @@ interface GmailMessageDetail {
   }
 }
 
+/**
+ * Purpose: Lists Gmail message IDs for the current mailbox using the provided Gmail search query.
+ * Function type: helper
+ * Args:
+ * - accessToken: string
+ * - query: string
+ * - maxResults: number
+ */
 async function listMessages(
   accessToken: string,
   query: string,
@@ -35,6 +43,13 @@ async function listMessages(
   return data.messages ?? []
 }
 
+/**
+ * Purpose: Loads the metadata for a single Gmail message so tool responses can show sender, subject, and preview text.
+ * Function type: helper
+ * Args:
+ * - accessToken: string
+ * - messageId: string
+ */
 async function getMessageDetail(accessToken: string, messageId: string) {
   const res = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,
@@ -44,6 +59,13 @@ async function getMessageDetail(accessToken: string, messageId: string) {
   return (await res.json()) as GmailMessageDetail
 }
 
+/**
+ * Purpose: Archives a Gmail message by removing the INBOX label while leaving the message in the mailbox.
+ * Function type: helper
+ * Args:
+ * - accessToken: string
+ * - messageId: string
+ */
 async function archiveMessage(accessToken: string, messageId: string) {
   const res = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`,
@@ -59,6 +81,13 @@ async function archiveMessage(accessToken: string, messageId: string) {
   if (!res.ok) throw new Error(`Gmail API error: ${res.status}`)
 }
 
+/**
+ * Purpose: Moves a Gmail message to trash.
+ * Function type: helper
+ * Args:
+ * - accessToken: string
+ * - messageId: string
+ */
 async function trashMessage(accessToken: string, messageId: string) {
   const res = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/trash`,
@@ -70,6 +99,16 @@ async function trashMessage(accessToken: string, messageId: string) {
   if (!res.ok) throw new Error(`Gmail API error: ${res.status}`)
 }
 
+/**
+ * Purpose: Builds a base64url-encoded raw RFC 822 email payload for the Gmail send-message endpoint.
+ * Function type: helper
+ * Args:
+ * - to: string
+ * - subject: string
+ * - body: string
+ * - cc: string | undefined
+ * - bcc: string | undefined
+ */
 function buildRawEmail(
   to: string,
   subject: string,
@@ -96,6 +135,13 @@ function buildRawEmail(
 
 type AILikeCtx = Pick<ActionCtx, 'runQuery' | 'runMutation'>
 
+/**
+ * Purpose: Creates the Gmail read tool for checking inbox messages with unread, sender, or free-text filters.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
 export function createCheckMailTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
@@ -155,6 +201,13 @@ export function createCheckMailTool(ctx: AILikeCtx, userId: string) {
   })
 }
 
+/**
+ * Purpose: Creates the Gmail send tool for composing and sending plain-text emails from the user's Gmail account.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
 export function createSendMailTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
@@ -193,6 +246,13 @@ export function createSendMailTool(ctx: AILikeCtx, userId: string) {
   })
 }
 
+/**
+ * Purpose: Creates the Gmail management tool for archiving or deleting emails selected by search criteria.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
 export function createManageMailTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:

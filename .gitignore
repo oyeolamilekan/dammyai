@@ -11,7 +11,6 @@ node_modules
 .tanstack
 
 /build/
-/api/
 /server/build
 /public/build
 /dist/

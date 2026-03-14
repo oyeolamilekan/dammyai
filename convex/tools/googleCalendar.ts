@@ -26,6 +26,13 @@ interface CalendarEventResponse {
 
 type AILikeCtx = Pick<ActionCtx, 'runQuery' | 'runMutation'>
 
+/**
+ * Purpose: Creates the Google Calendar read tool for listing upcoming events or searching a date range.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
 export function createCheckScheduleTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
@@ -110,6 +117,13 @@ export function createCheckScheduleTool(ctx: AILikeCtx, userId: string) {
   })
 }
 
+/**
+ * Purpose: Creates the Google Calendar scheduling tool for creating meetings or calls in the user's calendar.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
 export function createScheduleCallTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description: 'Schedule a call or meeting on Google Calendar.',
@@ -170,6 +184,13 @@ export function createScheduleCallTool(ctx: AILikeCtx, userId: string) {
   })
 }
 
+/**
+ * Purpose: Creates the Google Calendar delete tool that finds an event and removes it from the user's calendar.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
 export function createRemoveEventTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:

@@ -1,5 +1,11 @@
 import { authComponent } from '../betterAuth/auth'
 
+/**
+ * Purpose: Resolves the currently authenticated user's ID from a Convex context and returns `null` when unauthenticated.
+ * Function type: helper
+ * Args:
+ * - ctx: unknown
+ */
 export async function getUserId(ctx: unknown): Promise<string | null> {
   const user = await authComponent.safeGetAuthUser(ctx as never)
   if (!user) {
@@ -9,6 +15,12 @@ export async function getUserId(ctx: unknown): Promise<string | null> {
   return String(rawId)
 }
 
+/**
+ * Purpose: Resolves the currently authenticated user's ID and throws when the request is unauthenticated.
+ * Function type: helper
+ * Args:
+ * - ctx: unknown
+ */
 export async function requireUserId(ctx: unknown): Promise<string> {
   const userId = await getUserId(ctx)
   if (!userId) {

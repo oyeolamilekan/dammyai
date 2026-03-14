@@ -3,6 +3,13 @@ import { getRequiredEnv } from '../lib/env'
 
 const SCOPES = 'data:read_write,data:delete'
 
+/**
+ * Purpose: Starts the Todoist OAuth flow by redirecting the user to Todoist's authorization page with the current user ID in state.
+ * Function type: httpAction
+ * Args:
+ * - _ctx: Convex action context
+ * - request: Request
+ */
 export const todoistAuth = httpAction((_ctx, request) => {
   const url = new URL(request.url)
   const userId = url.searchParams.get('userId')
@@ -28,6 +35,13 @@ export const todoistAuth = httpAction((_ctx, request) => {
   )
 })
 
+/**
+ * Purpose: Completes the Todoist OAuth callback, exchanges the auth code for an access token, stores the integration, and redirects back to the dashboard.
+ * Function type: httpAction
+ * Args:
+ * - ctx: Convex action context
+ * - request: Request
+ */
 export const todoistCallback = httpAction(async (ctx, request) => {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')

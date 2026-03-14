@@ -10,6 +10,13 @@ const providerValidator = v.union(
   v.literal('exa'),
 )
 
+/**
+ * Purpose: Fetches a single stored integration record for an internal caller by user and provider.
+ * Function type: internalQuery
+ * Args:
+ * - userId: v.string()
+ * - provider: providerValidator
+ */
 export const getIntegration = internalQuery({
   args: {
     userId: v.string(),

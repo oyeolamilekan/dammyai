@@ -2,6 +2,11 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import { getOptionalEnv } from '../lib/env'
 
+/**
+ * Purpose: Creates the Tavily-backed web search tool used to fetch current web results when Tavily is the selected search provider.
+ * Function type: tool factory
+ * Args: none
+ */
 export function createTavilySearchTool() {
   return tool({
     description:

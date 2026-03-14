@@ -1,6 +1,10 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
+/**
+ * Purpose: Defines the Better Auth tables and indexes that are merged into the application's Convex schema.
+ * Value type: schema table map
+ */
 export const tables = {
   user: defineTable({
     name: v.string(),
@@ -133,6 +137,10 @@ export const tables = {
   }).index('key', ['key']),
 }
 
+/**
+ * Purpose: Builds the Better Auth Convex schema from the shared auth table definitions.
+ * Value type: Convex schema
+ */
 const schema = defineSchema(tables)
 
 export default schema

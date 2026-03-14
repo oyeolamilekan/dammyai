@@ -1,9 +1,5 @@
 import { v } from 'convex/values'
-import {
-  internalMutation,
-  internalQuery,
-  query,
-} from './_generated/server'
+import { internalMutation, internalQuery, query } from './_generated/server'
 import { getUserId } from './lib/session'
 
 const stepValidator = v.object({
@@ -15,6 +11,12 @@ const stepValidator = v.object({
   timestamp: v.number(),
 })
 
+/**
+ * Purpose: Creates a new execution log row before a scheduled task starts running.
+ * Function type: internalMutation
+ * Args:
+ * - taskId: v.id('scheduledTasks')
+ */
 export const createExecutionLog = internalMutation({
   args: { taskId: v.id('scheduledTasks') },
   handler: async (ctx, args) => {
@@ -27,6 +29,13 @@ export const createExecutionLog = internalMutation({
   },
 })
 
+/**
+ * Purpose: Appends a single tool-call step to an in-progress task execution log.
+ * Function type: internalMutation
+ * Args:
+ * - logId: v.id('taskExecutionLogs')
+ * - step: stepValidator
+ */
 export const appendLogStep = internalMutation({
   args: {
     logId: v.id('taskExecutionLogs'),
@@ -41,6 +50,15 @@ export const appendLogStep = internalMutation({
   },
 })
 
+/**
+ * Purpose: Marks a task execution log as completed or failed and stores the final result.
+ * Function type: internalMutation
+ * Args:
+ * - logId: v.id('taskExecutionLogs')
+ * - status: v.union(v.literal('completed'), v.literal('failed'))
+ * - result: v.optional(v.string())
+ * - error: v.optional(v.string())
+ */
 export const completeExecutionLog = internalMutation({
   args: {
     logId: v.id('taskExecutionLogs'),
@@ -58,6 +76,12 @@ export const completeExecutionLog = internalMutation({
   },
 })
 
+/**
+ * Purpose: Loads one execution log by ID for internal task-processing workflows.
+ * Function type: internalQuery
+ * Args:
+ * - logId: v.id('taskExecutionLogs')
+ */
 export const getExecutionLog = internalQuery({
   args: { logId: v.id('taskExecutionLogs') },
   handler: async (ctx, args) => {
@@ -65,6 +89,13 @@ export const getExecutionLog = internalQuery({
   },
 })
 
+/**
+ * Purpose: Returns recent execution logs for a scheduled task during internal processing.
+ * Function type: internalQuery
+ * Args:
+ * - taskId: v.id('scheduledTasks')
+ * - limit: v.optional(v.number())
+ */
 export const getExecutionLogs = internalQuery({
   args: {
     taskId: v.id('scheduledTasks'),
@@ -82,6 +113,13 @@ export const getExecutionLogs = internalQuery({
 
 // --- Public queries for the UI ---
 
+/**
+ * Purpose: Lists recent execution summaries for a task that belongs to the signed-in user.
+ * Function type: query
+ * Args:
+ * - taskId: v.id('scheduledTasks')
+ * - limit: v.optional(v.number())
+ */
 export const listTaskLogs = query({
   args: {
     taskId: v.id('scheduledTasks'),
@@ -116,6 +154,12 @@ export const listTaskLogs = query({
   },
 })
 
+/**
+ * Purpose: Returns the full step-by-step detail for one task execution log in the dashboard.
+ * Function type: query
+ * Args:
+ * - logId: v.id('taskExecutionLogs')
+ */
 export const getTaskLogDetail = query({
   args: { logId: v.id('taskExecutionLogs') },
   handler: async (ctx, args) => {

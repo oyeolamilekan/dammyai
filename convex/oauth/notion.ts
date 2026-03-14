@@ -1,6 +1,13 @@
 import { httpAction } from '../_generated/server'
 import { getRequiredEnv } from '../lib/env'
 
+/**
+ * Purpose: Starts the Notion OAuth flow by redirecting the user to Notion's authorization page with the current user ID in state.
+ * Function type: httpAction
+ * Args:
+ * - _ctx: Convex action context
+ * - request: Request
+ */
 export const notionAuth = httpAction((_ctx, request) => {
   const url = new URL(request.url)
   const userId = url.searchParams.get('userId')
@@ -29,6 +36,13 @@ export const notionAuth = httpAction((_ctx, request) => {
   )
 })
 
+/**
+ * Purpose: Completes the Notion OAuth callback, exchanges the auth code for an access token, stores the integration, and redirects back to the dashboard.
+ * Function type: httpAction
+ * Args:
+ * - ctx: Convex action context
+ * - request: Request
+ */
 export const notionCallback = httpAction(async (ctx, request) => {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')

@@ -41,6 +41,13 @@ async function todoistFetch(
   return fetch(url, init)
 }
 
+/**
+ * Purpose: Creates the Todoist read tool for listing pending or completed tasks with optional filtering.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
 export function createCheckTodosTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
@@ -130,6 +137,13 @@ export function createCheckTodosTool(ctx: AILikeCtx, userId: string) {
   })
 }
 
+/**
+ * Purpose: Creates the Todoist write tool for adding, completing, or removing tasks in the user's Todoist account.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
 export function createUpdateTodoTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:

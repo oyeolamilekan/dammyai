@@ -8,6 +8,12 @@
  * @module
  */
 
+import type * as ai_config from "../ai/config.js";
+import type * as ai_engine from "../ai/engine.js";
+import type * as ai_index from "../ai/index.js";
+import type * as ai_memory from "../ai/memory.js";
+import type * as ai_tools from "../ai/tools.js";
+import type * as ai_types from "../ai/types.js";
 import type * as aiActions from "../aiActions.js";
 import type * as aiStore from "../aiStore.js";
 import type * as aiTools from "../aiTools.js";
@@ -19,6 +25,7 @@ import type * as integrations from "../integrations.js";
 import type * as lib_deepResearch from "../lib/deepResearch.js";
 import type * as lib_env from "../lib/env.js";
 import type * as lib_google from "../lib/google.js";
+import type * as lib_pdfApi from "../lib/pdfApi.js";
 import type * as lib_pdfGenerator from "../lib/pdfGenerator.js";
 import type * as lib_session from "../lib/session.js";
 import type * as lib_telegramFormat from "../lib/telegramFormat.js";
@@ -48,6 +55,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "ai/config": typeof ai_config;
+  "ai/engine": typeof ai_engine;
+  "ai/index": typeof ai_index;
+  "ai/memory": typeof ai_memory;
+  "ai/tools": typeof ai_tools;
+  "ai/types": typeof ai_types;
   aiActions: typeof aiActions;
   aiStore: typeof aiStore;
   aiTools: typeof aiTools;
@@ -59,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   "lib/deepResearch": typeof lib_deepResearch;
   "lib/env": typeof lib_env;
   "lib/google": typeof lib_google;
+  "lib/pdfApi": typeof lib_pdfApi;
   "lib/pdfGenerator": typeof lib_pdfGenerator;
   "lib/session": typeof lib_session;
   "lib/telegramFormat": typeof lib_telegramFormat;

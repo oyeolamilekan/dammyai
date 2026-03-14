@@ -55,6 +55,14 @@ const getResearchJobForUser = async (
   return existing
 }
 
+/**
+ * Purpose: Saves or updates a compact core memory fact on behalf of the AI agent.
+ * Function type: internalMutation
+ * Args:
+ * - userId: v.string()
+ * - key: v.string()
+ * - value: v.string()
+ */
 export const saveCoreMemory = internalMutation({
   args: {
     userId: v.string(),
@@ -103,6 +111,13 @@ export const saveCoreMemory = internalMutation({
   },
 })
 
+/**
+ * Purpose: Deletes one core memory fact by key for the AI agent.
+ * Function type: internalMutation
+ * Args:
+ * - userId: v.string()
+ * - key: v.string()
+ */
 export const deleteCoreMemory = internalMutation({
   args: {
     userId: v.string(),
@@ -123,6 +138,14 @@ export const deleteCoreMemory = internalMutation({
   },
 })
 
+/**
+ * Purpose: Saves a longer archival note that the AI can search later.
+ * Function type: internalMutation
+ * Args:
+ * - userId: v.string()
+ * - content: v.string()
+ * - tags: v.optional(v.string())
+ */
 export const saveArchivalMemory = internalMutation({
   args: {
     userId: v.string(),
@@ -145,6 +168,14 @@ export const saveArchivalMemory = internalMutation({
   },
 })
 
+/**
+ * Purpose: Searches a user's archival memories using lightweight keyword scoring.
+ * Function type: internalQuery
+ * Args:
+ * - userId: v.string()
+ * - query: v.string()
+ * - limit: v.optional(v.number())
+ */
 export const searchArchivalMemories = internalQuery({
   args: {
     userId: v.string(),
@@ -188,6 +219,13 @@ export const searchArchivalMemories = internalQuery({
   },
 })
 
+/**
+ * Purpose: Deletes one archival memory by string ID after verifying ownership.
+ * Function type: internalMutation
+ * Args:
+ * - userId: v.string()
+ * - id: v.string()
+ */
 export const deleteArchivalMemory = internalMutation({
   args: {
     userId: v.string(),
@@ -203,6 +241,14 @@ export const deleteArchivalMemory = internalMutation({
   },
 })
 
+/**
+ * Purpose: Lists recent scheduled tasks for tool-driven task management in the AI layer.
+ * Function type: internalQuery
+ * Args:
+ * - userId: v.string()
+ * - limit: v.optional(v.number())
+ * - type: v.optional(v.union(v.literal('one_off'), v.literal('recurring')))
+ */
 export const listScheduledTasks = internalQuery({
   args: {
     userId: v.string(),
@@ -228,6 +274,16 @@ export const listScheduledTasks = internalQuery({
   },
 })
 
+/**
+ * Purpose: Creates a scheduled task from an AI tool call.
+ * Function type: internalMutation
+ * Args:
+ * - userId: v.string()
+ * - prompt: v.string()
+ * - type: taskTypeValidator
+ * - intervalMs: v.optional(v.number())
+ * - runAt: v.optional(v.number())
+ */
 export const createScheduledTask = internalMutation({
   args: {
     userId: v.string(),
@@ -287,6 +343,15 @@ export const createScheduledTask = internalMutation({
   },
 })
 
+/**
+ * Purpose: Updates a scheduled task selected by an AI tool call.
+ * Function type: internalMutation
+ * Args:
+ * - userId: v.string()
+ * - id: v.string()
+ * - prompt: v.optional(v.string())
+ * - enabled: v.optional(v.boolean())
+ */
 export const updateScheduledTask = internalMutation({
   args: {
     userId: v.string(),
@@ -321,6 +386,13 @@ export const updateScheduledTask = internalMutation({
   },
 })
 
+/**
+ * Purpose: Deletes a scheduled task selected by an AI tool call.
+ * Function type: internalMutation
+ * Args:
+ * - userId: v.string()
+ * - id: v.string()
+ */
 export const deleteScheduledTask = internalMutation({
   args: {
     userId: v.string(),
@@ -336,6 +408,13 @@ export const deleteScheduledTask = internalMutation({
   },
 })
 
+/**
+ * Purpose: Creates a background research job from an AI tool call and enqueues processing.
+ * Function type: internalMutation
+ * Args:
+ * - userId: v.string()
+ * - prompt: v.string()
+ */
 export const startBackgroundResearch = internalMutation({
   args: {
     userId: v.string(),
@@ -362,6 +441,13 @@ export const startBackgroundResearch = internalMutation({
   },
 })
 
+/**
+ * Purpose: Cancels a specific or most recent active research job for the AI layer.
+ * Function type: internalMutation
+ * Args:
+ * - userId: v.string()
+ * - id: v.optional(v.string())
+ */
 export const cancelBackgroundResearch = internalMutation({
   args: {
     userId: v.string(),

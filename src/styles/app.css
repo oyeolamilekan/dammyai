@@ -106,3 +106,37 @@
     @apply bg-background text-foreground min-h-svh;
   }
 }
+
+@layer components {
+  .research-report {
+    @apply bg-background text-foreground;
+  }
+
+  .research-report :where(h1, h2, h3, h4) {
+    @apply text-foreground;
+  }
+
+  .research-report :where(blockquote) {
+    @apply border-l-primary/60 bg-muted/60 text-muted-foreground;
+  }
+
+  .research-report :where(table) {
+    @apply block w-full overflow-x-auto rounded-lg border;
+  }
+
+  .research-report :where(thead) {
+    @apply bg-muted/70;
+  }
+
+  .research-report :where(th, td) {
+    @apply border-border;
+  }
+
+  .research-report :where(code) {
+    @apply rounded bg-muted px-1.5 py-0.5 text-foreground;
+  }
+
+  .research-report :where(pre) {
+    @apply overflow-x-auto rounded-lg border bg-muted p-4;
+  }
+}

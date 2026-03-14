@@ -1,6 +1,8 @@
 /**
- * Convert common Markdown produced by the AI into Telegram-safe HTML.
- * Handles: bold, italic, inline code, code blocks, links, and HTML escaping.
+ * Purpose: Converts assistant Markdown into Telegram-safe HTML while preserving common formatting patterns.
+ * Function type: helper
+ * Args:
+ * - md: string
  */
 export function markdownToTelegramHtml(md: string): string {
   let html = md

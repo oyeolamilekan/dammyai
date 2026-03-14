@@ -7,7 +7,7 @@ import {
   mutation,
   query,
 } from './_generated/server'
-import { executeAIPromptImpl } from './aiActions'
+import { executeAIPromptImpl } from './ai/engine'
 import { getUserId, requireUserId } from './lib/session'
 import { sendTelegramMessage } from './telegram'
 import type { Id } from './_generated/dataModel'
@@ -43,6 +43,13 @@ const paginate = <T>(items: Array<T>, page: number, limit: number) => {
   }
 }
 
+/**
+ * Purpose: Lists the signed-in user's scheduled tasks with simple pagination metadata.
+ * Function type: query
+ * Args:
+ * - page: v.optional(v.number())
+ * - limit: v.optional(v.number())
+ */
 export const listTasks = query({
   args: {
     page: v.optional(v.number()),
@@ -80,6 +87,15 @@ export const listTasks = query({
   },
 })
 
+/**
+ * Purpose: Creates a one-off or recurring task for the signed-in user.
+ * Function type: mutation
+ * Args:
+ * - prompt: v.string()
+ * - type: taskTypeValidator
+ * - intervalMs: v.optional(v.number())
+ * - runAt: v.optional(v.number())
+ */
 export const createTask = mutation({
   args: {
     prompt: v.string(),
@@ -141,6 +157,14 @@ export const createTask = mutation({
   },
 })
 
+/**
+ * Purpose: Updates an existing task's prompt or enabled state for the signed-in user.
+ * Function type: mutation
+ * Args:
+ * - id: v.id('scheduledTasks')
+ * - prompt: v.optional(v.string())
+ * - enabled: v.optional(v.boolean())
+ */
 export const updateTask = mutation({
   args: {
     id: v.id('scheduledTasks'),
@@ -178,6 +202,12 @@ export const updateTask = mutation({
   },
 })
 
+/**
+ * Purpose: Deletes a scheduled task owned by the signed-in user.
+ * Function type: mutation
+ * Args:
+ * - id: v.id('scheduledTasks')
+ */
 export const deleteTask = mutation({
   args: { id: v.id('scheduledTasks') },
   handler: async (ctx, args) => {
@@ -191,6 +221,13 @@ export const deleteTask = mutation({
   },
 })
 
+/**
+ * Purpose: Returns due tasks for cron processing based on the next run timestamp.
+ * Function type: internalQuery
+ * Args:
+ * - now: v.number()
+ * - limit: v.optional(v.number())
+ */
 export const getDueTasks = internalQuery({
   args: {
     now: v.number(),
@@ -207,6 +244,12 @@ export const getDueTasks = internalQuery({
   },
 })
 
+/**
+ * Purpose: Loads a task by ID for the internal execution pipeline.
+ * Function type: internalQuery
+ * Args:
+ * - id: v.id('scheduledTasks')
+ */
 export const getTaskById = internalQuery({
   args: { id: v.id('scheduledTasks') },
   handler: async (ctx, args) => {
@@ -214,6 +257,17 @@ export const getTaskById = internalQuery({
   },
 })
 
+/**
+ * Purpose: Applies execution results back onto a scheduled task after it finishes running.
+ * Function type: internalMutation
+ * Args:
+ * - id: v.id('scheduledTasks')
+ * - result: v.string()
+ * - ranAt: v.number()
+ * - nextRunAt: v.optional(v.number())
+ * - enabled: v.boolean()
+ * - lastLogId: v.optional(v.id('taskExecutionLogs'))
+ */
 export const applyTaskExecution = internalMutation({
   args: {
     id: v.id('scheduledTasks'),
