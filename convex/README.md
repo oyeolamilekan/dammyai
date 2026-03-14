@@ -58,16 +58,72 @@ Registered in `http.ts` and used for:
 
 The source of truth for the data model. Read this first before changing backend behavior.
 
-Main tables:
+The app schema merges Better Auth tables from `betterAuth/schema.ts` with DammyAI-specific tables from `schema.ts`.
 
-- `integrations`
-- `coreMemories`
-- `archivalMemories`
-- `messages`
-- `souls`
-- `scheduledTasks`
-- `taskExecutionLogs`
-- `backgroundResearch`
+#### Auth tables
+
+- `user`: Better Auth user profile rows with email, display fields, phone metadata, and optional external `userId` linkage. Common indexes: `email_name`, `username`, `phoneNumber`, `userId`.
+- `session`: session tokens keyed by `token` and user ownership, with expiry timestamps for cleanup and validation. Common indexes: `token`, `userId`, `expiresAt`.
+- `account`: provider account links for auth/OAuth providers, including access/refresh tokens and expiry metadata. Common indexes: `accountId_providerId`, `providerId_userId`, `userId`.
+- `verification`: verification codes/tokens keyed by `identifier` with expiry tracking. Common indexes: `identifier`, `expiresAt`.
+- `twoFactor`: TOTP secrets and backup codes by user. Common index: `userId`.
+- `passkey`: WebAuthn credentials by `credentialID` and `userId`.
+- `oauthApplication`: Better Auth OAuth client registrations keyed by `clientId` and optional owner `userId`.
+- `oauthAccessToken`: OAuth access/refresh tokens keyed by `accessToken`, `refreshToken`, `clientId`, and `userId`.
+- `oauthConsent`: stored OAuth consent grants keyed by `clientId_userId`.
+- `jwks`: public/private key material for JWT/JWK support.
+- `rateLimit`: simple request throttling records keyed by `key`.
+
+#### App tables
+
+- `integrations`: user-owned external provider credentials and Telegram linking state.
+  - Fields include `provider`, `apiKey`, OAuth tokens, token expiry, `telegramChatId`, and `linkingCode`.
+  - Common indexes: `userId`, `userId_provider`, `provider_linkingCode`, `provider_telegramChatId`.
+- `memories`: short-form user memories for dashboard-visible notes and recent facts.
+  - Fields: `userId`, `content`, optional `category`, `createdAt`, `updatedAt`.
+  - Common indexes: `userId`, `userId_updatedAt`.
+- `coreMemories`: durable key/value facts used by the assistant for identity, preferences, and stable context.
+  - Fields: `userId`, `key`, `value`, optional `category`, optional `source`, timestamps.
+  - Common indexes: `userId`, `userId_key`.
+- `archivalMemories`: longer-form notes stored as free text with optional tags.
+  - Fields: `userId`, `content`, optional `tags`, timestamps.
+  - Common indexes: `userId`, `userId_updatedAt`.
+- `messages`: conversation history for the assistant.
+  - Fields: `userId`, `role` (`user`, `assistant`, `tool`), `content`, optional tool metadata, `createdAt`.
+  - Common index: `userId_createdAt`.
+- `souls`: per-user AI configuration and preferences.
+  - Fields: `systemPrompt`, optional `modelPreference`, optional `searchProvider`, optional `researchModelPreference`, timestamps.
+  - Common index: `userId`.
+- `scheduledTasks`: one-off and recurring automation tasks.
+  - Fields: `prompt`, `type`, optional scheduling timestamps, optional last-run/result metadata, `enabled`, timestamps.
+  - Common indexes: `userId`, `enabled_nextRunAt`.
+- `taskExecutionLogs`: structured execution history for scheduled tasks.
+  - Fields: `taskId`, `startedAt`, optional `completedAt`, `status`, optional `result` / `error`, and detailed `steps`.
+  - Common indexes: `taskId`, `taskId_startedAt`.
+- `backgroundResearch`: long-running research job tracking.
+  - Fields: `prompt`, `status`, optional `result`, optional `summary`, optional `error`, optional `checkpoints`, `createdAt`, optional `completedAt`.
+  - Common indexes: `userId_createdAt`, `status_createdAt`, `userId_status_createdAt`.
+
+#### Index usage guidance
+
+- Prefer the user-scoped indexes (`userId`, `userId_updatedAt`, `userId_createdAt`) for dashboard reads.
+- Use composite indexes exactly in declared field order when calling `.withIndex()`.
+- `enabled_nextRunAt` powers scheduled-task polling in cron workers.
+- `status_createdAt` and `userId_status_createdAt` power research job processing and filtered user views.
+
+#### Relationship map
+
+Convex does not enforce SQL-style foreign keys here, but the schema has a few important application-level relationships:
+
+- `user` is the root identity table for authenticated users.
+- `session.userId`, `account.userId`, `twoFactor.userId`, and `passkey.userId` all belong to a `user` row from Better Auth.
+- `integrations.userId` links external provider credentials and Telegram linkage to a user.
+- `memories.userId`, `coreMemories.userId`, `archivalMemories.userId`, `messages.userId`, and `souls.userId` all belong to the same user-scoped assistant context.
+- `scheduledTasks.userId` ties automations to a user, and `taskExecutionLogs.taskId` points to a `scheduledTasks` row.
+- `scheduledTasks.lastLogId` optionally points back to the latest `taskExecutionLogs` row for quick task status display.
+- `backgroundResearch.userId` ties research jobs to a user; the stored `result`, `summary`, and `checkpoints` belong to that user-owned job.
+- `integrations.provider` determines how the rest of the integration fields are interpreted. For example, Telegram uses `telegramChatId` / `linkingCode`, while OAuth providers use access and refresh tokens.
+- `messages` and `coreMemories` / `archivalMemories` are indirectly related through shared `userId`: the AI runtime reads both to build context, but they are stored separately for different retention and UX needs.
 
 ### `aiActions.ts`
 
