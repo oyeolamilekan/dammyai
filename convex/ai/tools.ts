@@ -179,14 +179,19 @@ export const createAgentTools = (
     execute: async ({ prompt, type, runAtIso, intervalMinutes }) => {
       const runAt = parseRunAtIso(runAtIso)
       const intervalMs = intervalMinutes ? intervalMinutes * 60_000 : undefined
-      const id = await ctx.runMutation(internal.aiTools.createScheduledTask, {
+      await ctx.runMutation(internal.aiTools.createScheduledTask, {
         userId,
         prompt,
         type,
         runAt,
         intervalMs,
       })
-      return `Created scheduled task (${id}).`
+      const timeInfo = runAtIso
+        ? `scheduled for ${new Date(runAtIso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`
+        : intervalMinutes
+          ? `repeating every ${intervalMinutes >= 1440 ? `${Math.round(intervalMinutes / 1440)} day(s)` : intervalMinutes >= 60 ? `${Math.round(intervalMinutes / 60)} hour(s)` : `${intervalMinutes} minute(s)`}`
+          : ''
+      return `Done — ${type === 'recurring' ? 'recurring' : 'one-off'} task "${prompt}" ${timeInfo}.`.trim()
     },
   }),
   listScheduledTasks: tool({
@@ -211,7 +216,7 @@ export const createAgentTools = (
       return tasks
         .map(
           (task) =>
-            `[${task.id}] ${task.prompt} (${task.type}, enabled=${task.enabled})`,
+            `• ${task.prompt} — ${task.type === 'recurring' ? 'recurring' : 'one-off'}${task.enabled ? '' : ' (paused)'}`,
         )
         .join('\n')
     },
@@ -230,7 +235,10 @@ export const createAgentTools = (
         prompt,
         enabled,
       })
-      return 'Scheduled task updated.'
+      const parts = []
+      if (prompt !== undefined) parts.push('prompt updated')
+      if (enabled !== undefined) parts.push(enabled ? 'resumed' : 'paused')
+      return `Done — task ${parts.join(' and ')}.`
     },
   }),
   deleteScheduledTask: tool({
@@ -243,8 +251,8 @@ export const createAgentTools = (
         userId,
         id,
       }))
-        ? 'Scheduled task deleted.'
-        : 'Scheduled task not found.',
+        ? 'Done — task removed.'
+        : 'Couldn\'t find that task — it may have already been removed.',
   }),
   startBackgroundResearch: tool({
     description:
@@ -253,14 +261,14 @@ export const createAgentTools = (
       prompt: z.string().min(1),
     }),
     execute: async ({ prompt }) => {
-      const id = await ctx.runMutation(
+      await ctx.runMutation(
         internal.aiTools.startBackgroundResearch,
         {
           userId,
           prompt,
         },
       )
-      return `Started background research (${id}).`
+      return `Research kicked off — I'll dig into "${prompt}" and deliver the results when ready.`
     },
   }),
   cancelBackgroundResearch: tool({
@@ -274,8 +282,8 @@ export const createAgentTools = (
         userId,
         id,
       }))
-        ? 'Background research canceled.'
-        : 'No active background research job found.',
+        ? 'Done — research canceled.'
+        : 'No active research to cancel — it may have already finished.',
   }),
   checkMail: createCheckMailTool(ctx, userId),
   sendMail: createSendMailTool(ctx, userId),

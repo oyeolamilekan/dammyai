@@ -351,8 +351,7 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
       { userId: task.userId },
     )
     if (integration?.telegramChatId) {
-      const header = `👋 *Hey, quick update for you*\n_${task.prompt}_\n\n`
-      await sendTelegramMessage(integration.telegramChatId, header + result)
+      await sendTelegramMessage(integration.telegramChatId, result)
     }
   } catch {
     // Telegram delivery is best-effort
