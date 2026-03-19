@@ -311,6 +311,13 @@ function MemoriesPage() {
                     ) : (
                       <p className="text-sm break-words">{item.content}</p>
                     )}
+                    {isAssistant && item.modelId && (
+                      <p className="text-[10px] text-muted-foreground mt-1.5">
+                        {item.modelId.includes('/')
+                          ? item.modelId.split('/').pop()
+                          : item.modelId}
+                      </p>
+                    )}
                   </div>
                 )
               })

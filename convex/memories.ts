@@ -52,6 +52,7 @@ export const listConversations = query({
       role: row.role,
       content: row.content,
       toolName: row.toolName ?? null,
+      modelId: row.modelId ?? null,
       createdAt: new Date(row.createdAt).toISOString(),
     }))
 

@@ -113,11 +113,13 @@ const saveResponseAndMemories = async (
   userId: string,
   userPrompt: string,
   assistantMessage: string,
+  modelId?: string,
 ) => {
   await ctx.runMutation(internal.aiStore.saveMessage, {
     userId,
     role: 'assistant' as const,
     content: assistantMessage,
+    modelId,
   })
 
   try {
@@ -188,7 +190,13 @@ export const executeAIPromptImpl = async (
     result.text.trim() || "I couldn't generate a response."
 
   // 6. Save response & extract memories
-  await saveResponseAndMemories(ctx, args.userId, userPrompt, assistantMessage)
+  await saveResponseAndMemories(
+    ctx,
+    args.userId,
+    userPrompt,
+    assistantMessage,
+    modelId,
+  )
 
   return assistantMessage
 }

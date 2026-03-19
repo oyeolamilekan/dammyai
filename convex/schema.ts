@@ -65,6 +65,7 @@ export default defineSchema({
     content: v.string(),
     toolName: v.optional(v.string()),
     toolCallId: v.optional(v.string()),
+    modelId: v.optional(v.string()),
     createdAt: v.number(),
   }).index('userId_createdAt', ['userId', 'createdAt']),
   souls: defineTable({
