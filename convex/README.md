@@ -122,6 +122,7 @@ Convex does not enforce SQL-style foreign keys here, but the schema has a few im
 - `scheduledTasks.userId` ties automations to a user, and `taskExecutionLogs.taskId` points to a `scheduledTasks` row.
 - `scheduledTasks.lastLogId` optionally points back to the latest `taskExecutionLogs` row for quick task status display.
 - `backgroundResearch.userId` ties research jobs to a user; the stored `result`, `summary`, and `checkpoints` belong to that user-owned job.
+- `telegramProcessedUpdates` tracks processed Telegram `update_id` values for webhook idempotency, preventing duplicate processing of the same message.
 - `integrations.provider` determines how the rest of the integration fields are interpreted. For example, Telegram uses `telegramChatId` / `linkingCode`, while OAuth providers use access and refresh tokens.
 - `messages` and `coreMemories` / `archivalMemories` are indirectly related through shared `userId`: the AI runtime reads both to build context, but they are stored separately for different retention and UX needs.
 
@@ -143,9 +144,10 @@ Extracted AI runtime helpers.
 Current structure:
 
 - `engine.ts`: main execution flow for user-scoped AI prompts and direct replies
-- `tools.ts`: AI SDK tool definitions and tool-output formatting
+- `tools.ts`: AI SDK tool definitions, tool-output formatting, and a per-invocation dedup guard for background research
 - `memory.ts`: auto-extraction and persistence of memories from conversations
-- `config.ts`: assistant prompt defaults, model normalization, and prompt construction
+- `config.ts`: model normalization, prompt construction, and re-exports from `prompts.ts`
+- `prompts.ts`: centralized prompt definitions for all agents (main assistant, scheduled tasks, deep research, memory extraction)
 - `types.ts`: shared runtime types used across the AI modules
 
 ### `aiStore.ts`
@@ -179,11 +181,12 @@ Responsibilities:
 
 - dashboard CRUD for scheduled tasks
 - internal due-task lookup
+- claim-before-execute pattern to prevent duplicate execution by overlapping cron ticks
 - execution via the AI runtime
 - result logging
 - optional Telegram delivery
 
-`TASK_SYSTEM_PROMPT` defines the tone for automated task messages.
+Prompt constants for task execution live in `ai/prompts.ts` (imported as `TASK_SYSTEM_PROMPT`).
 
 ### `taskLogs.ts`
 

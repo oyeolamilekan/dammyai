@@ -11,6 +11,7 @@ import { deepResearch, wrapReportHtml } from './lib/deepResearch'
 import { getOptionalEnv } from './lib/env'
 import { renderPdfViaApi } from './lib/pdfApi'
 import { getUserId, requireUserId } from './lib/session'
+import { markdownToTelegramHtml } from './lib/telegramFormat'
 import type { Id } from './_generated/dataModel'
 import type { ActionCtx } from './_generated/server'
 
@@ -228,12 +229,14 @@ async function sendResearchToTelegram(
     await sendAction(chatId, 'typing')
 
     // Send summary message first
+    const safeTopic = markdownToTelegramHtml(prompt)
+    const safeSummary = markdownToTelegramHtml(summary)
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: chatId,
-        text: `📊 <b>Research Complete</b>\n\n<b>Topic:</b> ${prompt}\n\n${summary}`,
+        text: `📊 <b>Research Complete</b>\n\n<b>Topic:</b> ${safeTopic}\n\n${safeSummary}`,
         parse_mode: 'HTML',
       }),
     })

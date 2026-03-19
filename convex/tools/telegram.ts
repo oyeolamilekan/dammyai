@@ -20,13 +20,13 @@ const getEnv = () =>
 export function createSendTelegramMessageTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
-      'Send a message to the user via their linked Telegram account. Use this to proactively notify, remind, or communicate with the user on Telegram.',
+      'Send a message to the user via their linked Telegram account. USE when the user explicitly asks to be notified on Telegram, or when you need to proactively push information (e.g., research results, important updates). In scheduled task context, the system automatically delivers the task result via Telegram — do NOT call this tool redundantly.',
     inputSchema: z.object({
       message: z
         .string()
         .min(1)
         .describe(
-          'The message text to send. Supports basic Markdown formatting.',
+          'The message text to send. Supports basic Markdown: *bold*, _italic_, `code`, [links](url). Keep messages concise and conversational.',
         ),
     }),
     execute: async ({ message }) => {

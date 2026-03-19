@@ -10,6 +10,7 @@ import {
 import { executeAIPromptImpl } from './ai/engine'
 import { getUserId, requireUserId } from './lib/session'
 import { sendTelegramMessage } from './telegram'
+import { TASK_SYSTEM_PROMPT } from './ai/prompts'
 import type { Id } from './_generated/dataModel'
 import type { ActionCtx } from './_generated/server'
 
@@ -289,20 +290,28 @@ export const applyTaskExecution = internalMutation({
   },
 })
 
-const TASK_SYSTEM_PROMPT =
-  'You are a thoughtful personal assistant gently following up on something the user scheduled earlier. ' +
-  'The user is NOT present — do NOT ask questions, clarify, or confirm. Just carry out the task and share the result. ' +
-  'Keep your tone warm, friendly, and conversational — like a helpful friend giving a soft nudge, not a robot filing a report. ' +
-  'If the task involves a reminder, write it as a kind, encouraging note (e.g. "Hey, just a gentle reminder…"). ' +
-  'Be concise but human. Never wait for user input.'
-
 const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
   const task = await ctx.runQuery(internal.tasks.getTaskById, { id })
   if (!task || !task.enabled) {
     return
   }
 
+  // Claim the task immediately to prevent duplicate execution by the next cron tick.
+  // For one_off: disable. For recurring: advance nextRunAt so cron won't re-pick it.
   const ranAt = now()
+  const nextRunAt =
+    task.type === 'recurring' && task.intervalMs
+      ? ranAt + task.intervalMs
+      : undefined
+
+  await ctx.runMutation(internal.tasks.applyTaskExecution, {
+    id,
+    result: task.lastResult ?? '',
+    ranAt,
+    nextRunAt,
+    enabled: task.type === 'recurring',
+    lastLogId: task.lastLogId,
+  })
   let stepIndex = 0
 
   // Create execution log
@@ -357,11 +366,7 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
     // Telegram delivery is best-effort
   }
 
-  const nextRunAt =
-    task.type === 'recurring' && task.intervalMs
-      ? ranAt + task.intervalMs
-      : undefined
-
+  // Update with actual result and log ID (nextRunAt/enabled already set by claim above)
   await ctx.runMutation(internal.tasks.applyTaskExecution, {
     id,
     result,

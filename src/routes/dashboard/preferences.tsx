@@ -20,6 +20,13 @@ const MODELS = [
   { label: 'GPT-5.1 Instant', value: 'openai/gpt-5.1-instant' },
   { label: 'GPT-5', value: 'openai/gpt-5' },
   { label: 'GPT-5.2 Pro', value: 'openai/gpt-5.2-pro' },
+  { label: 'GPT-5.2 Code mini', value: 'openai/gpt-5.1-codex-mini' },
+  { label: 'GPT-5 mini', value: 'openai/gpt-5-mini' },
+  { label: 'Mistrial Large', value: 'mistral/mistral-large-3' },
+  { label: 'Mistrial Nemo', value: 'mistral/mistral-nemo' },
+  { label: 'Mistrial Medium', value: 'mistral/mistral-medium' },
+  { label: 'Mistrial Small', value: 'mistral/mistral-small' },
+  { label: 'Mistrial codestral', value: 'mistral/codestral' },
   // Anthropic
   { label: 'Claude Opus 4.6', value: 'anthropic/claude-opus-4.6' },
   { label: 'Claude Sonnet 4.6', value: 'anthropic/claude-sonnet-4.6' },

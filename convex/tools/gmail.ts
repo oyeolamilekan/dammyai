@@ -145,20 +145,20 @@ type AILikeCtx = Pick<ActionCtx, 'runQuery' | 'runMutation'>
 export function createCheckMailTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
-      "Check the user's Gmail inbox. Can filter by unread status or search by sender/keyword.",
+      'Read emails from the user\'s Gmail inbox. USE when the user asks "check my email", "any new mail?", "emails from John", or wants to see recent messages. Supports filtering by unread status, sender, or free-text Gmail search syntax.',
     inputSchema: z.object({
       unreadOnly: z
         .boolean()
         .optional()
-        .describe('If true, only return unread emails'),
+        .describe('If true, only return unread emails. Default: false (all emails).'),
       sender: z
         .string()
         .optional()
-        .describe('Filter emails by sender name or address'),
+        .describe('Filter by sender name or email address, e.g. "john@example.com" or "John"'),
       query: z
         .string()
         .optional()
-        .describe('General search query (same as Gmail search box)'),
+        .describe('Gmail search query (same syntax as Gmail search box), e.g. "subject:invoice", "has:attachment", "after:2024/01/01"'),
       maxResults: z
         .number()
         .optional()
@@ -211,13 +211,13 @@ export function createCheckMailTool(ctx: AILikeCtx, userId: string) {
 export function createSendMailTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
-      "Send an email via the user's Gmail account. Requires a recipient, subject, and body.",
+      'Send an email from the user\'s Gmail account. In interactive chat: show a draft summary (to, subject, first line of body) and ask the user to confirm before calling this tool. In scheduled task context: send directly without confirmation. USE when the user asks to send, compose, or reply to an email.',
     inputSchema: z.object({
-      to: z.string().describe('Recipient email address'),
+      to: z.string().describe('Recipient email address, e.g. "john@example.com"'),
       subject: z.string().describe('Email subject line'),
-      body: z.string().describe('Plain text email body'),
-      cc: z.string().optional().describe('CC recipient email address'),
-      bcc: z.string().optional().describe('BCC recipient email address'),
+      body: z.string().describe('Plain text email body. Use line breaks for paragraphs.'),
+      cc: z.string().optional().describe('CC recipient email address (optional)'),
+      bcc: z.string().optional().describe('BCC recipient email address (optional)'),
     }),
     execute: async ({ to, subject, body, cc, bcc }) => {
       const accessToken = await getGmailAccessToken(ctx, userId)
@@ -256,22 +256,22 @@ export function createSendMailTool(ctx: AILikeCtx, userId: string) {
 export function createManageMailTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
-      "Archive or delete emails from the user's Gmail. Can target emails by search query, sender, or subject.",
+      'Archive or delete emails from Gmail. USE when the user says "clean up my inbox", "archive emails from X", "delete that email", or wants to manage email bulk. Requires at least one filter (query, sender, or subject) to target emails.',
     inputSchema: z.object({
       action: z
         .enum(['archive', 'delete'])
-        .describe("'archive' removes from inbox, 'delete' moves to trash"),
-      query: z.string().optional().describe('Search query to find emails'),
+        .describe('"archive" removes from inbox but keeps the email; "delete" moves to trash'),
+      query: z.string().optional().describe('Gmail search query to find target emails, e.g. "is:unread older_than:7d"'),
       sender: z
         .string()
         .optional()
-        .describe('Filter by sender name or address'),
+        .describe('Filter by sender name or email address'),
       subject: z.string().optional().describe('Filter by subject keywords'),
       maxResults: z
         .number()
         .optional()
         .default(5)
-        .describe('Max emails to process (default 5, max 10)'),
+        .describe('Max emails to process in one call (default 5, max 10)'),
     }),
     execute: async ({ action, query, sender, subject, maxResults }) => {
       const accessToken = await getGmailAccessToken(ctx, userId)

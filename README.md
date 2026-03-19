@@ -73,18 +73,21 @@ For backend module details, see [`convex/README.md`](./convex/README.md).
 ### AI assistant flow
 
 1. A user message arrives from the app or Telegram.
-2. `convex/aiActions.ts` loads soul settings, memories, and conversation history.
-3. The AI model is called with tool access from `convex/aiTools.ts`.
-4. Tool implementations in `convex/tools/` call external providers.
-5. Messages and auto-extracted memories are persisted back into Convex.
+2. `convex/aiActions.ts` loads soul settings, conversation history (last 20 messages), and core memories.
+3. The system prompt is assembled from the soul config, centralized prompts in `convex/ai/prompts.ts`, and core memories.
+4. The AI model is called with tool access from `convex/ai/tools.ts`.
+5. Tool implementations in `convex/tools/` call external providers.
+6. If the query requires deep research, the model calls `startBackgroundResearch` (once per invocation, enforced by a dedup guard).
+7. Messages and auto-extracted memories are persisted back into Convex.
 
 ### Scheduled task flow
 
 1. A task is created in `scheduledTasks`.
 2. Cron jobs in `convex/crons.ts` check for due tasks every minute.
-3. `convex/tasks.ts` executes the prompt through the AI engine.
-4. Execution logs are stored in `taskExecutionLogs`.
-5. Results can be delivered to Telegram if linked.
+3. `convex/tasks.ts` claims the task immediately (disables one-off tasks or advances the next run time for recurring tasks) to prevent duplicate execution by the next cron tick.
+4. The prompt is executed through the AI engine.
+5. Execution logs are stored in `taskExecutionLogs`.
+6. Results can be delivered to Telegram if linked.
 
 ### Research flow
 
@@ -199,6 +202,7 @@ Defined in `convex/schema.ts`:
 - `scheduledTasks`
 - `taskExecutionLogs`
 - `backgroundResearch`
+- `telegramProcessedUpdates`
 
 ## Environment notes
 

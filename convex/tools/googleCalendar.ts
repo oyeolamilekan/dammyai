@@ -36,16 +36,16 @@ type AILikeCtx = Pick<ActionCtx, 'runQuery' | 'runMutation'>
 export function createCheckScheduleTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
-      "Check the user's Google Calendar schedule. Can list upcoming events or search for events on a specific date.",
+      'View upcoming events on Google Calendar. USE when the user asks "what\'s on my calendar?", "am I free tomorrow?", "any meetings this week?", or wants to check availability. NOT for Todoist tasks (use checkTodos) or scheduled reminders (use listScheduledTasks).',
     inputSchema: z.object({
       date: z
         .string()
         .optional()
-        .describe('Specific date in YYYY-MM-DD format. Defaults to today.'),
+        .describe('Start date in YYYY-MM-DD format. Defaults to today. Interpret relative dates ("tomorrow", "next Monday") using current date/time from system prompt.'),
       daysAhead: z
         .number()
         .optional()
-        .describe('Number of days ahead to look (default 1, max 30)'),
+        .describe('Number of days to look ahead from the start date (default 1, max 30). Use 7 for "this week", 1 for "today".'),
       maxResults: z
         .number()
         .optional()
@@ -53,7 +53,7 @@ export function createCheckScheduleTool(ctx: AILikeCtx, userId: string) {
       query: z
         .string()
         .optional()
-        .describe('Free text search query to filter events'),
+        .describe('Free-text search to filter events by title or description, e.g. "standup", "dentist"'),
     }),
     execute: async ({ date, daysAhead, maxResults, query }) => {
       const accessToken = await getGoogleCalendarAccessToken(ctx, userId)
@@ -126,18 +126,18 @@ export function createCheckScheduleTool(ctx: AILikeCtx, userId: string) {
  */
 export function createScheduleCallTool(ctx: AILikeCtx, userId: string) {
   return tool({
-    description: 'Schedule a call or meeting on Google Calendar.',
+    description: 'Create a meeting or call on Google Calendar. USE when the user says "schedule a meeting with…", "book a call with…", or "put X on my calendar". NOT for reminders/tasks (use createScheduledTask) or Todoist items (use updateTodo).',
     inputSchema: z.object({
       participant: z
         .string()
-        .describe('Name or email of the person to schedule with'),
-      date: z.string().describe("Date for the call, e.g. '2026-02-15'"),
-      time: z.string().describe("Time for the call, e.g. '14:00'"),
+        .describe('Name or email of the participant. If email is provided (contains @), they will be added as an attendee.'),
+      date: z.string().describe('Date for the event in YYYY-MM-DD format. Interpret relative dates ("tomorrow") using current date from system prompt.'),
+      time: z.string().describe('Start time in 24-hour HH:MM format, e.g. "14:00", "09:30". This is interpreted as the user\'s local time.'),
       durationMinutes: z
         .number()
         .optional()
-        .describe('Duration in minutes (default 30)'),
-      topic: z.string().optional().describe('Optional topic or agenda'),
+        .describe('Duration in minutes (default 30). Common: 15, 30, 60.'),
+      topic: z.string().optional().describe('Meeting topic or agenda. Used in the event title as "Topic with Participant".'),
     }),
     execute: async ({ participant, date, time, durationMinutes, topic }) => {
       const accessToken = await getGoogleCalendarAccessToken(ctx, userId)
@@ -194,17 +194,17 @@ export function createScheduleCallTool(ctx: AILikeCtx, userId: string) {
 export function createRemoveEventTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
-      "Remove/delete an event from the user's Google Calendar. Searches by name then deletes.",
+      'Delete an event from Google Calendar by searching for it. Finds the first matching event and removes it. USE when the user says "cancel my meeting with…", "remove the dentist appointment", or "delete that event".',
     inputSchema: z.object({
-      query: z.string().describe('Name or search text of the event to remove'),
+      query: z.string().describe('Search text to find the event — use the event title, participant name, or keywords, e.g. "standup", "call with John"'),
       date: z
         .string()
         .optional()
-        .describe('Date in YYYY-MM-DD format. Defaults to today.'),
+        .describe('Start date for search range in YYYY-MM-DD format. Defaults to today.'),
       daysAhead: z
         .number()
         .optional()
-        .describe('Days ahead to search (default 7, max 30)'),
+        .describe('Days ahead to search from start date (default 7, max 30). Use wider range if the event might be further out.'),
     }),
     execute: async ({ query, date, daysAhead }) => {
       const accessToken = await getGoogleCalendarAccessToken(ctx, userId)

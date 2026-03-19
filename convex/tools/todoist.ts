@@ -51,17 +51,17 @@ async function todoistFetch(
 export function createCheckTodosTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
-      "Check the user's Todoist to-do list. Can filter by status or search by keyword.",
+      'View the user\'s Todoist task list. USE when the user asks "what are my tasks?", "show my to-do list", "what\'s overdue?", or wants to see pending/completed items. NOT for Google Calendar events (use checkSchedule) or scheduled reminders (use listScheduledTasks).',
     inputSchema: z.object({
       status: z
         .enum(['all', 'pending', 'completed'])
         .optional()
-        .describe("Filter by status. Defaults to 'pending'."),
+        .describe('Filter by task status. Default: "pending". Use "completed" to show recently finished tasks (last 2 weeks).'),
       filter: z
         .string()
         .optional()
         .describe(
-          "Todoist filter query, e.g. 'today', 'overdue', 'p1', '#Work'",
+          'Todoist filter expression. Examples: "today" (due today), "overdue" (past due), "p1" (priority 1 = urgent), "#Work" (project), "tomorrow", "next 7 days"',
         ),
     }),
     execute: async ({ status, filter }) => {
@@ -147,24 +147,24 @@ export function createCheckTodosTool(ctx: AILikeCtx, userId: string) {
 export function createUpdateTodoTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
-      "Update the user's Todoist: add a new task, mark one as complete, or remove one.",
+      'Add, complete, or remove a Todoist task. USE when the user says "add a task", "mark X as done", "remove X from my list", or "I need to do X". NOT for time-triggered reminders (use createScheduledTask) or calendar events (use scheduleCall).',
     inputSchema: z.object({
       action: z
         .enum(['add', 'complete', 'remove'])
-        .describe('The action to perform'),
+        .describe('"add" creates a new task, "complete" marks it done, "remove" deletes it permanently'),
       task: z
         .string()
-        .describe('Task description to add, or search text to find a task'),
+        .describe('For "add": the task description. For "complete"/"remove": search text to find the existing task by name.'),
       due: z
         .string()
         .optional()
         .describe(
-          "Due date for new tasks, e.g. 'today', 'tomorrow', '2026-03-01'",
+          'Due date for new tasks (only for "add"). Natural language or date: "today", "tomorrow", "next Monday", "2026-03-01"',
         ),
       priority: z
         .number()
         .optional()
-        .describe("Priority 1-4 (1 = highest). Only for 'add'."),
+        .describe('Priority 1-4 for new tasks (only for "add"). 4 = urgent (red), 3 = high (orange), 2 = medium (blue), 1 = low (default). Maps to Todoist p1-p4 display.'),
     }),
     execute: async ({ action, task, due, priority }) => {
       const accessToken = await getTodoistAccessToken(ctx, userId)

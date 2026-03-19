@@ -10,14 +10,14 @@ import { getOptionalEnv } from '../lib/env'
 export function createTavilySearchTool() {
   return tool({
     description:
-      'Search the web using Tavily to find up-to-date information, articles, and resources.',
+      'Search the web for current information. USE for factual questions needing up-to-date data, recent news, live prices, current events, or when you need to verify uncertain facts. Formulate queries as specific search terms, not full sentences. NOT for deep multi-source research (use startBackgroundResearch instead).',
     inputSchema: z.object({
-      query: z.string().describe('Search query'),
+      query: z.string().describe('Search query — use specific keywords like a search engine, e.g. "React 19 new features" not "What are the new features in React 19?"'),
       numResults: z
         .number()
         .optional()
         .default(5)
-        .describe('Number of results (default 5, max 10)'),
+        .describe('Number of results to return (default 5, max 10). Use more for broader topics.'),
     }),
     execute: async ({ query, numResults }) => {
       const apiKey = getOptionalEnv('TAVILY_API_KEY')

@@ -12,6 +12,7 @@ import type * as ai_config from "../ai/config.js";
 import type * as ai_engine from "../ai/engine.js";
 import type * as ai_index from "../ai/index.js";
 import type * as ai_memory from "../ai/memory.js";
+import type * as ai_prompts from "../ai/prompts.js";
 import type * as ai_tools from "../ai/tools.js";
 import type * as ai_types from "../ai/types.js";
 import type * as aiActions from "../aiActions.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   "ai/engine": typeof ai_engine;
   "ai/index": typeof ai_index;
   "ai/memory": typeof ai_memory;
+  "ai/prompts": typeof ai_prompts;
   "ai/tools": typeof ai_tools;
   "ai/types": typeof ai_types;
   aiActions: typeof aiActions;

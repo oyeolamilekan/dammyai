@@ -96,6 +96,39 @@ export const completeTelegramLink = internalMutation({
 })
 
 /**
+ * Purpose: Checks whether a Telegram update has already been processed (idempotency guard).
+ * Function type: internalQuery
+ * Args:
+ * - updateId: v.number()
+ */
+export const hasProcessedUpdate = internalQuery({
+  args: { updateId: v.number() },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query('telegramProcessedUpdates')
+      .withIndex('updateId', (q) => q.eq('updateId', args.updateId))
+      .unique()
+    return existing !== null
+  },
+})
+
+/**
+ * Purpose: Records a Telegram update_id as processed to prevent duplicate handling.
+ * Function type: internalMutation
+ * Args:
+ * - updateId: v.number()
+ */
+export const markUpdateProcessed = internalMutation({
+  args: { updateId: v.number() },
+  handler: async (ctx, args) => {
+    await ctx.db.insert('telegramProcessedUpdates', {
+      updateId: args.updateId,
+      processedAt: Date.now(),
+    })
+  },
+})
+
+/**
  * Purpose: Persists a Telegram conversation message into the shared messages history table.
  * Function type: internalMutation
  * Args:

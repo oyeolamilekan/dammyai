@@ -10,7 +10,6 @@ import {
 import { extractAndSaveMemories } from './memory'
 import { createAgentTools, formatToolOutput } from './tools'
 import type { AILikeCtx, AIPromptArgs, AssistantReplyArgs } from './types'
-
 /**
  * Purpose: Generates a plain assistant response using the configured model path without loading user-scoped history or memories.
  * Function type: helper
@@ -32,8 +31,113 @@ export const generateAssistantReplyImpl = async (args: AssistantReplyArgs) => {
   return text.trim()
 }
 
+// ---------------------------------------------------------------------------
+// Helpers that break executeAIPromptImpl into readable steps
+// ---------------------------------------------------------------------------
+
+/** Loads the user's soul config, conversation history, and core memories in parallel. */
+const loadUserContext = (ctx: AILikeCtx, userId: string) =>
+  Promise.all([
+    ctx.runQuery(internal.aiStore.getSoulByUserId, { userId }),
+    ctx.runQuery(internal.aiStore.getConversationHistory, {
+      userId,
+      limit: 20,
+    }),
+    ctx.runQuery(internal.aiStore.getCoreMemories, { userId }),
+  ])
+
+/** Assembles the full system prompt from the base prompt, memory instructions, and core memories. */
+const assembleSystemPrompt = (
+  basePrompt: string,
+  coreMemories: Array<{ key: string; value: string }>,
+) => {
+  const promptBody = `${basePrompt}\n\n${MEMORY_INSTRUCTIONS}`
+  return buildSystemPrompt(promptBody, coreMemories)
+}
+
+/** Persists the user's message to conversation history. */
+const saveUserMessage = (ctx: AILikeCtx, userId: string, content: string) =>
+  ctx.runMutation(internal.aiStore.saveMessage, {
+    userId,
+    role: 'user' as const,
+    content,
+  })
+
+/** Creates the onStepFinish callback that persists tool results and fires the optional onToolCall hook. */
+const createStepHandler = (ctx: AILikeCtx, args: AIPromptArgs) => {
+  return async ({
+    toolCalls,
+    toolResults,
+  }: {
+    toolCalls?: Array<{
+      toolCallId?: string
+      toolName?: string
+      args?: unknown
+    }>
+    toolResults?: Array<{
+      toolCallId?: string
+      toolName?: string
+      output?: unknown
+    }>
+  }) => {
+    if (!toolResults || toolResults.length === 0) return
+
+    for (let i = 0; i < toolResults.length; i++) {
+      const row = toolResults[i]
+      const toolName = row.toolName ?? 'tool'
+      const content = formatToolOutput(row.output).slice(0, 4000)
+
+      await ctx.runMutation(internal.aiStore.saveMessage, {
+        userId: args.userId,
+        role: 'tool',
+        content,
+        toolName,
+        toolCallId: row.toolCallId,
+      })
+
+      if (args.onToolCall) {
+        await args.onToolCall({
+          toolName,
+          toolCallId: row.toolCallId ?? '',
+          input: toolCalls?.[i]?.args ?? {},
+          output: row.output,
+        })
+      }
+    }
+  }
+}
+
+/** Persists the final assistant message and extracts memories (best-effort). */
+const saveResponseAndMemories = async (
+  ctx: AILikeCtx,
+  userId: string,
+  userPrompt: string,
+  assistantMessage: string,
+) => {
+  await ctx.runMutation(internal.aiStore.saveMessage, {
+    userId,
+    role: 'assistant' as const,
+    content: assistantMessage,
+  })
+
+  try {
+    await extractAndSaveMemories(ctx, {
+      userId,
+      userMessage: userPrompt,
+      assistantMessage,
+    })
+  } catch (error) {
+    console.error('[AI] Memory extraction failed:', error)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Main pipeline
+// ---------------------------------------------------------------------------
+
 /**
- * Purpose: Runs the full user-scoped AI assistant flow, including prompt construction, conversation persistence, tool execution, and memory extraction.
+ * Purpose: Runs the full user-scoped AI assistant flow — prompt construction, query classification,
+ *          conversation persistence, tool execution, and memory extraction.
  * Function type: helper
  * Args:
  * - ctx: AILikeCtx
@@ -53,97 +157,38 @@ export const executeAIPromptImpl = async (
     throw new Error('Prompt is required')
   }
 
-  const [soul, history, coreMemories] = await Promise.all([
-    ctx.runQuery(internal.aiStore.getSoulByUserId, { userId: args.userId }),
-    ctx.runQuery(internal.aiStore.getConversationHistory, {
-      userId: args.userId,
-      limit: 50,
-    }),
-    ctx.runQuery(internal.aiStore.getCoreMemories, { userId: args.userId }),
-  ])
+  // 1. Load user context
+  const [soul, history, coreMemories] = await loadUserContext(ctx, args.userId)
 
-  const modelPreference = args.modelPreference?.trim() || soul?.modelPreference
-  const modelId = normalizeGatewayModelId(modelPreference)
+  // 2. Resolve model & preferences
+  const modelId = normalizeGatewayModelId(
+    args.modelPreference?.trim() || soul?.modelPreference,
+  )
   const searchProvider = soul?.searchProvider
   const basePrompt =
     args.systemPrompt?.trim() || soul?.systemPrompt || DEFAULT_SYSTEM_PROMPT
-  const systemPrompt = buildSystemPrompt(
-    `${basePrompt}\n\n${MEMORY_INSTRUCTIONS}`,
-    coreMemories,
-  )
 
-  await ctx.runMutation(internal.aiStore.saveMessage, {
-    userId: args.userId,
-    role: 'user',
-    content: userPrompt,
-  })
+  // 3. Assemble system prompt
+  const systemPrompt = assembleSystemPrompt(basePrompt, coreMemories)
 
+  // 4. Persist user message
+  await saveUserMessage(ctx, args.userId, userPrompt)
+
+  // 5. Run the model with tools
   const result = await generateText({
     model: modelId,
     system: systemPrompt,
     messages: [...history, { role: 'user', content: userPrompt }],
     tools: createAgentTools(ctx, args.userId, searchProvider),
     stopWhen: stepCountIs(8),
-    onStepFinish: async ({
-      toolCalls,
-      toolResults,
-    }: {
-      toolCalls?: Array<{
-        toolCallId?: string
-        toolName?: string
-        args?: unknown
-      }>
-      toolResults?: Array<{
-        toolCallId?: string
-        toolName?: string
-        output?: unknown
-      }>
-    }) => {
-      if (!toolResults || toolResults.length === 0) {
-        return
-      }
-      for (let i = 0; i < toolResults.length; i++) {
-        const row = toolResults[i]
-        const toolName = row.toolName ?? 'tool'
-        const content = formatToolOutput(row.output).slice(0, 4000)
-        await ctx.runMutation(internal.aiStore.saveMessage, {
-          userId: args.userId,
-          role: 'tool',
-          content,
-          toolName,
-          toolCallId: row.toolCallId,
-        })
-        if (args.onToolCall) {
-          const callArgs = toolCalls?.[i]?.args
-          await args.onToolCall({
-            toolName,
-            toolCallId: row.toolCallId ?? '',
-            input: callArgs ?? {},
-            output: row.output,
-          })
-        }
-      }
-    },
+    onStepFinish: createStepHandler(ctx, args),
   })
 
   const assistantMessage =
     result.text.trim() || "I couldn't generate a response."
 
-  await ctx.runMutation(internal.aiStore.saveMessage, {
-    userId: args.userId,
-    role: 'assistant',
-    content: assistantMessage,
-  })
-
-  try {
-    await extractAndSaveMemories(ctx, {
-      userId: args.userId,
-      userMessage: userPrompt,
-      assistantMessage,
-    })
-  } catch (error) {
-    console.error('[AI] Memory extraction failed:', error)
-  }
+  // 6. Save response & extract memories
+  await saveResponseAndMemories(ctx, args.userId, userPrompt, assistantMessage)
 
   return assistantMessage
 }

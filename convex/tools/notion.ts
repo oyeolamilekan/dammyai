@@ -64,18 +64,18 @@ function extractTitle(page: NotionPage): string {
  */
 export function createNotionDocumentTool(ctx: AILikeCtx, userId: string) {
   return tool({
-    description: "Create a new page/document in the user's Notion workspace.",
+    description: 'Create a new page in the user\'s Notion workspace. USE when the user says "save to Notion", "create a doc about…", "write up…", or wants a shareable/structured document. NOT for personal notes only you reference (use saveArchivalMemory instead).',
     inputSchema: z.object({
       title: z.string().describe('Title of the new Notion page'),
       content: z
         .string()
         .optional()
-        .describe('Plain text content for the page body'),
+        .describe('Plain text content for the page body. Each line becomes a paragraph block. Max ~2000 chars per paragraph.'),
       parentPageId: z
         .string()
         .optional()
         .describe(
-          'ID of a parent page. If omitted, uses first accessible page.',
+          'ID of a parent page to nest under. If omitted, the page is created under the first accessible page in the workspace. Get IDs from searchNotion results.',
         ),
     }),
     execute: async ({ title, content, parentPageId }) => {
@@ -157,22 +157,22 @@ export function createNotionDocumentTool(ctx: AILikeCtx, userId: string) {
 export function createUpdateNotionDocumentTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
-      'Update an existing Notion page. Can update title, append content, or archive.',
+      'Update an existing Notion page — rename, append content, or archive it. USE when the user says "update my doc", "add to the meeting notes page", or "archive that Notion page". Find the page by ID (from searchNotion) or by title search.',
     inputSchema: z.object({
       pageId: z
         .string()
         .optional()
-        .describe('Notion page ID. If omitted, searches by title.'),
+        .describe('Notion page ID. Get this from searchNotion results. If omitted, the page is found by title search.'),
       search: z
         .string()
         .optional()
-        .describe('Search query to find the page by title'),
-      title: z.string().optional().describe('New title for the page'),
+        .describe('Search query to find the page by title. Used only if pageId is not provided.'),
+      title: z.string().optional().describe('New title for the page. Omit to keep the current title.'),
       content: z
         .string()
         .optional()
-        .describe('Text content to append to the page'),
-      archive: z.boolean().optional().describe('If true, archive the page'),
+        .describe('Text content to append to the end of the page. Does not replace existing content — it adds to it.'),
+      archive: z.boolean().optional().describe('Set to true to archive (soft-delete) the page. Cannot be undone via this tool.'),
     }),
     execute: async ({ pageId, search, title, content, archive }) => {
       const accessToken = await getNotionAccessToken(ctx, userId)
@@ -290,17 +290,17 @@ export function createUpdateNotionDocumentTool(ctx: AILikeCtx, userId: string) {
 export function createSearchNotionTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
-      "Search for pages and documents in the user's Notion workspace.",
+      'Search for pages in the user\'s Notion workspace. USE when the user asks "find my doc about…", "search Notion for…", or when you need a page ID for createNotionDocument (parentPageId) or updateNotionDocument (pageId). Returns page titles, last-edited dates, and links.',
     inputSchema: z.object({
       query: z
         .string()
         .optional()
-        .describe('Search query to find pages by title or content'),
+        .describe('Search query to find pages by title or content. Omit to list recent pages.'),
       maxResults: z
         .number()
         .optional()
         .default(10)
-        .describe('Max results (default 10, max 20)'),
+        .describe('Max results to return (default 10, max 20)'),
     }),
     execute: async ({ query, maxResults }) => {
       const accessToken = await getNotionAccessToken(ctx, userId)

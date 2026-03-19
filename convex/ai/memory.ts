@@ -1,6 +1,7 @@
 import { generateText } from 'ai'
 import { internal } from '../_generated/api'
 import { normalizeMemoryModelId } from './config'
+import { MEMORY_EXTRACTION_PROMPT } from './prompts'
 import type { AILikeCtx, ExtractedMemory } from './types'
 
 /**
@@ -74,28 +75,7 @@ export const extractAndSaveMemories = async (
 
   const { text } = await generateText({
     model: normalizeMemoryModelId(),
-    system: [
-      'You analyze conversations and extract memories worth saving.',
-      'Return a JSON array. Each item has a "type" field: either "core" or "archival".',
-      '',
-      'CORE memories (type: "core") are short key-value facts:',
-      '  {type: "core", key: "snake_case_label", value: "short fact", category: "..."}',
-      '  Keys: name, bot_name, timezone, job_title, company, location, favorite_language, communication_style, etc.',
-      '  Categories: preference, contact, schedule, personal, work.',
-      '  If an existing fact changed, reuse the SAME key with the new value.',
-      '  Max 200 chars for value.',
-      '',
-      'ARCHIVAL memories (type: "archival") are longer notes worth remembering:',
-      '  {type: "archival", content: "detailed note...", tags: "comma,separated,tags"}',
-      '  Use for: project details, meeting summaries, multi-step instructions, detailed preferences.',
-      '  Max 2000 chars for content.',
-      '',
-      'Rules:',
-      '- Only extract NEW or CHANGED information not in the known facts.',
-      '- Prefer core for short identity facts. Prefer archival for anything longer than a sentence.',
-      '- If there is nothing new worth remembering, return [].',
-      '- Only return the JSON array, nothing else.',
-    ].join('\n'),
+    system: MEMORY_EXTRACTION_PROMPT,
     prompt: `Known core facts:\n${knownFacts.join('\n') || '(none)'}\n\nUser: ${args.userMessage}\nAssistant: ${args.assistantMessage}`,
   })
 

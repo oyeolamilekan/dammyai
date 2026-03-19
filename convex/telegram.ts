@@ -108,8 +108,25 @@ export const webhook = httpAction(async (ctx, request) => {
   }
 
   const update = payload as {
+    update_id?: number
     message?: { chat?: { id?: number | string }; text?: string }
   }
+
+  // Idempotency: skip if this update was already processed
+  const updateId = update.update_id
+  if (updateId !== undefined) {
+    const alreadyProcessed = await ctx.runQuery(
+      internal.telegramStore.hasProcessedUpdate,
+      { updateId },
+    )
+    if (alreadyProcessed) {
+      return json({ ok: true })
+    }
+    await ctx.runMutation(internal.telegramStore.markUpdateProcessed, {
+      updateId,
+    })
+  }
+
   const text = update.message?.text?.trim()
   const chatIdRaw = update.message?.chat?.id
   if (!text || chatIdRaw === undefined) {

@@ -73,6 +73,7 @@ export default defineSchema({
     modelPreference: v.optional(v.string()),
     searchProvider: v.optional(v.union(v.literal('exa'), v.literal('tavily'))),
     researchModelPreference: v.optional(v.string()),
+    classifierModelPreference: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index('userId', ['userId']),
@@ -148,4 +149,8 @@ export default defineSchema({
     .index('userId_createdAt', ['userId', 'createdAt'])
     .index('status_createdAt', ['status', 'createdAt'])
     .index('userId_status_createdAt', ['userId', 'status', 'createdAt']),
+  telegramProcessedUpdates: defineTable({
+    updateId: v.number(),
+    processedAt: v.number(),
+  }).index('updateId', ['updateId']),
 })

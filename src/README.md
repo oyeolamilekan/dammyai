@@ -48,7 +48,7 @@ Defines the HTML shell, metadata, theme bootstrapping, and global UI wrappers li
 - `routes/dashboard/integrations.tsx`: connect OAuth providers and Telegram
 - `routes/dashboard/souls.tsx`: edit the assistant's system prompt and preferences
 - `routes/dashboard/account.tsx`: account details
-- `routes/dashboard/preferences.tsx`: user-level preferences
+- `routes/dashboard/preferences.tsx`: user-level preferences (model selection, search provider, research model)
 
 ## Auth and session helpers
 

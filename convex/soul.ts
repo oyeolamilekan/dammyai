@@ -2,8 +2,7 @@ import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { requireUserId } from './lib/session'
 
-const DEFAULT_PROMPT =
-  'You are a helpful personal assistant. You are friendly, concise, and action-oriented.'
+import { DEFAULT_SOUL_PROMPT } from './ai/prompts'
 
 /**
  * Purpose: Loads the current user's saved assistant configuration for the dashboard settings screen.
@@ -53,7 +52,7 @@ export const upsertSoul = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx)
-    const systemPrompt = args.systemPrompt.trim() || DEFAULT_PROMPT
+    const systemPrompt = args.systemPrompt.trim() || DEFAULT_SOUL_PROMPT
     const timestamp = Date.now()
 
     const existing = await ctx.db
@@ -67,6 +66,7 @@ export const upsertSoul = mutation({
         modelPreference: args.modelPreference,
         searchProvider: args.searchProvider,
         researchModelPreference: args.researchModelPreference,
+        classifierModelPreference: undefined,
         updatedAt: timestamp,
       })
       return existing._id

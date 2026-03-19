@@ -141,22 +141,23 @@ src/routes/
 
 ### AI & Tools
 
-#### `convex/aiActions.ts` - AI Execution Engine
-**Purpose**: Orchestrates AI-powered task execution with tool calling
+#### `convex/aiActions.ts` - AI Execution Entrypoint
+**Purpose**: Thin Convex action entrypoints that delegate to the extracted AI modules in `convex/ai/`.
 
 **Key Functions**:
 - `executeAIPrompt` (internalAction) - Main AI execution with tool integration
-  - Takes user prompt, system prompt override, model preference
-  - Loads conversation history, core memories, and recent facts
-  - Uses AI SDK with tool calling (max 8 steps)
-  - Automatically extracts and saves memories after each turn
-  - Calls `onToolCall` callback for tool execution tracking
-
 - `generateAssistantReply` (internalAction) - Simple text generation without tools
-  - Used for non-interactive AI responses
-  - No tool calling, just text completion
 
-**Tool Creation**:
+#### `convex/ai/` - AI Runtime Modules
+
+- `engine.ts` - Main execution pipeline: loads user context, assembles system prompt, runs the model with tools (max 8 steps), persists messages, and extracts memories.
+- `prompts.ts` - Centralized prompt definitions for all agents: main assistant (`DEFAULT_SYSTEM_PROMPT`, `MEMORY_INSTRUCTIONS`), scheduled tasks (`TASK_SYSTEM_PROMPT`), deep research (`buildReportSystemPrompt`), memory extraction (`MEMORY_EXTRACTION_PROMPT`), and defaults (`DEFAULT_SOUL_PROMPT`).
+- `tools.ts` - AI SDK tool definitions and assembly. Includes a per-invocation dedup guard to prevent duplicate `startBackgroundResearch` calls.
+- `config.ts` - Model normalization, prompt construction (`buildSystemPrompt`), and re-exports from `prompts.ts`.
+- `memory.ts` - Auto-extraction and persistence of memories from conversations.
+- `types.ts` - Shared runtime types.
+
+**Tool Categories**:
 - Memory tools: `saveCoreMemory`, `deleteCoreMemory`, `saveArchivalMemory`, `searchArchivalMemory`, `deleteArchivalMemory`
 - Task tools: `createScheduledTask`, `listScheduledTasks`, `updateScheduledTask`, `deleteScheduledTask`
 - Research tools: `startBackgroundResearch`, `cancelBackgroundResearch`
@@ -165,8 +166,8 @@ src/routes/
 **Default Behavior**:
 - Default model: `openai/gpt-4o-mini`
 - Memory extraction model: `openai/gpt-4o-mini`
-- System prompt includes memory instructions and tool documentation
-- Timezone support: Reads user's timezone from core memory, converts times to UTC
+- System prompt includes numbered rules for research routing, memory, tool routing, and response style
+- Conversation history limited to 20 messages to prevent old patterns overriding instructions
 
 #### `convex/aiStore.ts` - Data Access Layer for AI
 **Internal queries & mutations**:
@@ -177,27 +178,8 @@ src/routes/
 - `saveMessage()` - Save conversation messages
 - `saveExtractedMemories()` - Auto-save discovered facts
 
-#### `convex/aiTools.ts` - AI Tool Definitions
-**Purpose**: Individual tool implementations for AI agent
-
-**Memory Tools**:
-- CRUD operations for core and archival memories
-- Search archival memories by keyword/tags
-
-**Task Management Tools**:
-- Create one-off and recurring tasks with timezone conversion
-- List, update, delete tasks
-- Validates recurring interval >= 1 minute
-
-**Research Tools**:
-- Start background research job (async)
-- Cancel pending/running research
-
-**Integration Tools** (created in separate modules):
-- Email: check inbox, send mail (with draft confirmation), archive/delete
-- Calendar: check schedule, schedule calls, remove events
-- Todoist: check tasks, add/update/complete tasks
-- Notion: create docs, update docs, search workspace
+#### `convex/aiTools.ts` - AI Tool Backing Functions
+**Purpose**: Internal Convex mutations/queries backing model tool calls (memory CRUD, task CRUD, research start/cancel).
 - Telegram: send messages to linked chat
 - Web Search: Exa or Tavily provider (configurable per user)
 
@@ -1027,13 +1009,22 @@ dammyai/
 │   ├── auth.ts                    # Auth queries
 │   ├── auth.config.ts             # Auth provider config
 │   ├── http.ts                    # HTTP routes
-│   ├── aiActions.ts               # AI orchestration
+│   ├── aiActions.ts               # AI action entrypoints
 │   ├── aiStore.ts                 # AI data layer
-│   ├── aiTools.ts                 # AI tool definitions
+│   ├── aiTools.ts                 # AI tool backing functions
+│   │
+│   ├── ai/                        # AI runtime modules
+│   │   ├── engine.ts              # Main execution pipeline
+│   │   ├── prompts.ts             # Centralized prompt definitions
+│   │   ├── tools.ts               # AI SDK tool definitions
+│   │   ├── config.ts              # Model normalization & prompt construction
+│   │   ├── memory.ts              # Memory extraction
+│   │   └── types.ts               # Shared types
+│   │
 │   ├── integrations.ts            # Integration CRUD
 │   ├── memories.ts                # Memory management
 │   ├── soul.ts                    # AI personality
-│   ├── tasks.ts                   # Task execution & scheduling
+│   ├── tasks.ts                   # Task execution & scheduling (claim-before-execute)
 │   ├── research.ts                # Background research
 │   ├── crons.ts                   # Background jobs
 │   ├── telegram.ts                # Telegram bot handler
@@ -1083,7 +1074,8 @@ dammyai/
 **Backend Entry Points**:
 - `convex/http.ts` - All HTTP endpoint definitions
 - `convex/schema.ts` - Database schema (single source of truth)
-- `convex/aiActions.ts` - AI execution engine
+- `convex/aiActions.ts` - AI action entrypoints (delegates to `ai/engine.ts`)
+- `convex/ai/prompts.ts` - All prompt definitions (edit here to change AI behavior)
 
 **Configuration**:
 - `vite.config.ts` - Frontend build (Tailwind, TanStack, Nitro)
@@ -1168,7 +1160,8 @@ TELEGRAM_BOT_USERNAME   # Bot username for linking
 2. **Create OAuth flow**: Add files in `convex/oauth/newservice.ts`
 3. **Add HTTP route**: Register in `convex/http.ts`
 4. **Create tool**: `convex/tools/newservice.ts` implementing tool functions
-5. **Update UI**: Add connector definition in `src/routes/dashboard/integrations.tsx`
+5. **Register in AI tools**: Add to `createAgentTools()` in `convex/ai/tools.ts`
+6. **Update UI**: Add connector definition in `src/routes/dashboard/integrations.tsx`
 
 ---
 
@@ -1176,12 +1169,12 @@ TELEGRAM_BOT_USERNAME   # Bot username for linking
 
 - **Always check schema first** when working with data
 - **Use internal mutations/queries** for backend-only operations
-- **Timezone awareness**: Store as IANA string, convert user inputs to UTC ISO
+- **Prompts live in `convex/ai/prompts.ts`** — edit there to change AI behavior
 - **Error messaging**: Specific errors in mutations, user-friendly in frontend
 - **Async patterns**: Tools are async, use `await` for database operations
-- **Testing**: Run `npm run lint` and `npm run build` before committing
+- **Testing**: Run `bun run lint` and `bun run build` before committing
 - **Auth checks**: Always call `getUserId()` or `requireUserId()` in sensitive operations
 
 ---
 
-**Document Version**: 1.0 | Last Updated: March 2025
+**Document Version**: 2.0 | Last Updated: March 2026

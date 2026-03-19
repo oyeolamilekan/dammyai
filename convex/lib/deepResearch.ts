@@ -1,5 +1,6 @@
 import { Output, generateText } from 'ai'
 import { z } from 'zod'
+import { buildReportSystemPrompt } from '../ai/prompts'
 import { getOptionalEnv } from './env'
 
 const getModelId = (override?: string) => {
@@ -315,32 +316,6 @@ export async function deepResearch(
   return result
 }
 
-const buildReportSystemPrompt = () =>
-  `
-You are an expert research analyst. Today's date is ${new Date().toISOString()}.
-
-## Audience & Tone
-- The reader is a highly experienced analyst — be detailed, precise, and thorough.
-- Do not simplify. Assume expertise in all subject matter.
-- Accuracy is paramount.
-
-## Report Structure
-1. **Executive Summary** — Key findings at a glance.
-2. **Introduction** — Context and background.
-3. **Key Findings** — Detailed analysis organized by theme.
-4. **Analysis & Implications** — Critical evaluation and broader impact.
-5. **Recommendations** — Actionable next steps.
-6. **Conclusion** — Summary and final thoughts.
-7. **Sources & References** — Detailed source information.
-
-## Formatting
-- Output clean, semantic HTML (<h1>, <h2>, <p>, <ul>, <blockquote>, etc.).
-- Start directly with HTML tags — no markdown fences, no backticks wrapper.
-- Do not include inline styles, classes for visual layout, spacer elements, fixed-height containers, or page-break directives.
-- Do not wrap sections in full-page blocks or elements that reserve large empty areas.
-- The report should read like an authoritative, professional analysis.
-`.trim()
-
 function normalizeReportHtmlForPdf(content: string): string {
   return content
     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -367,6 +342,7 @@ async function generateReport(
 
   const result = await generateText({
     model: getModelId(_researchModelOverride),
+    maxOutputTokens: 16384,
     prompt: `Research Query: "${research.query}"
 
 Key Findings and Learnings:
@@ -384,23 +360,21 @@ ${trimmedSources
   .join('\n\n')}
 
 Generate a comprehensive research report based on this research data. Output clean HTML. Do NOT use markdown or code fences.
-Also provide a very short plain-text summary (1–2 sentences) of the key takeaway.`,
+
+IMPORTANT: Your very first line MUST be an HTML comment with a brief, summary must be 1-2 short sentences, everyday language — like explaining to a friend, summary must be short. No jargon, no bullet points. Use this exact format:
+<!-- SUMMARY: Your short casual summary here -->
+Then immediately follow with the full HTML report starting with <h1>.`,
     system: buildReportSystemPrompt(),
-    output: Output.object({
-      schema: z.object({
-        summary: z
-          .string()
-          .describe(
-            'A very short 1–2 sentence plain-text summary of the report',
-          ),
-        report: z
-          .string()
-          .describe('The full comprehensive research report in clean HTML'),
-      }),
-    }),
   })
 
-  return result.output
+  const text = result.text.trim()
+  const summaryMatch = text.match(/<!--\s*SUMMARY:\s*([\s\S]*?)-->/)
+  const summary = summaryMatch
+    ? summaryMatch[1].trim()
+    : 'Research report generated successfully.'
+  const report = text.replace(/<!--\s*SUMMARY:[\s\S]*?-->/, '').trim()
+
+  return { summary, report }
 }
 
 /**
