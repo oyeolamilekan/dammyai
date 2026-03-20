@@ -2,7 +2,13 @@ import { internal } from '../_generated/api'
 import { getRequiredEnv } from './env'
 import type { ActionCtx } from '../_generated/server'
 
-async function refreshGoogleAccessToken(refreshToken: string) {
+/**
+ * Purpose: Exchanges a Google refresh token for a new short-lived access token via the Google OAuth2 API.
+ * Returns null on failure (logs the error).
+ * Args:
+ * - refreshToken: string — the long-lived refresh token
+ */
+export async function refreshGoogleAccessToken(refreshToken: string) {
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

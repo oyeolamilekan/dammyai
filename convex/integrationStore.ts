@@ -31,3 +31,24 @@ export const getIntegration = internalQuery({
       .unique()
   },
 })
+
+/**
+ * Purpose: Finds all Google service integrations (gmail, google_calendar) whose access tokens
+ * expire before the given cutoff timestamp. Used by the token refresh cron.
+ * Function type: internalQuery
+ * Args:
+ * - expiresBeforeMs: v.number() — cutoff timestamp in ms; tokens expiring before this are returned
+ */
+export const getExpiringGoogleIntegrations = internalQuery({
+  args: { expiresBeforeMs: v.number() },
+  handler: async (ctx, args) => {
+    const all = await ctx.db.query('integrations').collect()
+    return all.filter(
+      (r) =>
+        (r.provider === 'gmail' || r.provider === 'google_calendar') &&
+        r.refreshToken &&
+        r.tokenExpiresAt &&
+        r.tokenExpiresAt < args.expiresBeforeMs,
+    )
+  },
+})

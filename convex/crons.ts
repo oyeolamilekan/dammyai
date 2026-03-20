@@ -17,4 +17,11 @@ crons.interval(
   {},
 )
 
+crons.interval(
+  'refresh expiring Google OAuth tokens',
+  { minutes: 30 },
+  internal.googleTokenRefresh.refreshExpiringGoogleTokens,
+  {},
+)
+
 export default crons

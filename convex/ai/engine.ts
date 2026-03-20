@@ -46,13 +46,14 @@ const loadUserContext = (ctx: AILikeCtx, userId: string) =>
     ctx.runQuery(internal.aiStore.getCoreMemories, { userId }),
   ])
 
-/** Assembles the full system prompt from the base prompt, memory instructions, and core memories. */
+/** Assembles the full system prompt from the base prompt, memory instructions, core memories, and timezone. */
 const assembleSystemPrompt = (
   basePrompt: string,
   coreMemories: Array<{ key: string; value: string }>,
+  timezone?: string,
 ) => {
   const promptBody = `${basePrompt}\n\n${MEMORY_INSTRUCTIONS}`
-  return buildSystemPrompt(promptBody, coreMemories)
+  return buildSystemPrompt(promptBody, coreMemories, timezone)
 }
 
 /** Persists the user's message to conversation history. */
@@ -167,11 +168,12 @@ export const executeAIPromptImpl = async (
     args.modelPreference?.trim() || soul?.modelPreference,
   )
   const searchProvider = soul?.searchProvider
+  const timezone = soul?.timezone
   const basePrompt =
     args.systemPrompt?.trim() || soul?.systemPrompt || DEFAULT_SYSTEM_PROMPT
 
   // 3. Assemble system prompt
-  const systemPrompt = assembleSystemPrompt(basePrompt, coreMemories)
+  const systemPrompt = assembleSystemPrompt(basePrompt, coreMemories, timezone)
 
   // 4. Persist user message
   await saveUserMessage(ctx, args.userId, userPrompt)

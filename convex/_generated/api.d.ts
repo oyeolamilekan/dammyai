@@ -20,6 +20,7 @@ import type * as aiStore from "../aiStore.js";
 import type * as aiTools from "../aiTools.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
+import type * as googleTokenRefresh from "../googleTokenRefresh.js";
 import type * as http from "../http.js";
 import type * as integrationStore from "../integrationStore.js";
 import type * as integrations from "../integrations.js";
@@ -68,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   aiTools: typeof aiTools;
   auth: typeof auth;
   crons: typeof crons;
+  googleTokenRefresh: typeof googleTokenRefresh;
   http: typeof http;
   integrationStore: typeof integrationStore;
   integrations: typeof integrations;

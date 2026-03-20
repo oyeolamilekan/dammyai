@@ -3,6 +3,14 @@ import { z } from 'zod'
 import { buildReportSystemPrompt } from '../ai/prompts'
 import { getOptionalEnv } from './env'
 
+/**
+ * Purpose: Resolves the AI model identifier for research operations.
+ * Uses the override if provided, otherwise falls back to env vars (AI_GATEWAY_MODEL,
+ * OPENAI_MODEL) and finally defaults to 'openai/gpt-5-mini'.
+ * Ensures the result always uses 'provider/model' format.
+ * Args:
+ * - override: string (optional) — a user-specified model preference
+ */
 const getModelId = (override?: string) => {
   if (override?.trim()) {
     const v = override.trim()
@@ -15,17 +23,20 @@ const getModelId = (override?: string) => {
   return raw.includes('/') ? raw : `openai/${raw}`
 }
 
+/** A single extracted learning with optional follow-up questions. */
 type Learning = {
   learning: string
   followUpQuestions: Array<string>
 }
 
+/** A single search result with title, URL, and extracted text content. */
 type SearchResult = {
   title: string
   url: string
   content: string
 }
 
+/** Accumulator for the full research state across all rounds. */
 type Research = {
   query: string
   queries: Array<string>
@@ -34,6 +45,7 @@ type Research = {
   completedQueries: Array<string>
 }
 
+/** Creates an empty Research accumulator seeded with the original query. */
 function createEmptyResearch(query: string): Research {
   return {
     query,
@@ -44,6 +56,7 @@ function createEmptyResearch(query: string): Research {
   }
 }
 
+/** Removes duplicate search results by URL, keeping the first occurrence. */
 function deduplicateResults(results: Array<SearchResult>): Array<SearchResult> {
   const seen = new Set<string>()
   return results.filter((r) => {
@@ -53,6 +66,13 @@ function deduplicateResults(results: Array<SearchResult>): Array<SearchResult> {
   })
 }
 
+/**
+ * Purpose: Executes a single web search via the Exa API and returns structured results.
+ * Returns an empty array when the EXA_API_KEY is not configured or the request fails.
+ * Args:
+ * - query: string — the search query
+ * - numResults: number — max results to return (default 5)
+ */
 async function searchExa(
   query: string,
   numResults = 5,
@@ -101,6 +121,15 @@ async function searchParallel(
   return settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
 }
 
+/**
+ * Purpose: Uses the AI model to generate diverse, specific search queries for a research topic.
+ * Incorporates existing learnings to avoid redundant queries and push deeper.
+ * Falls back to the original query if generation fails.
+ * Args:
+ * - query: string — the original research topic
+ * - n: number — number of queries to generate
+ * - existingLearnings: Array<string> (optional) — prior findings to avoid repeating
+ */
 async function generateSearchQueries(
   query: string,
   n: number,
@@ -127,6 +156,13 @@ async function generateSearchQueries(
   }
 }
 
+/**
+ * Purpose: Uses the AI model to extract structured learnings (facts + follow-up questions)
+ * from a set of search results. Returns an empty array if no results or extraction fails.
+ * Args:
+ * - query: string — the research topic (provides context for extraction)
+ * - searchResults: Array<SearchResult> — the sources to analyze
+ */
 async function extractLearnings(
   query: string,
   searchResults: Array<SearchResult>,
@@ -174,7 +210,11 @@ export type ProgressCallback = (
   status: 'running' | 'done' | 'error',
 ) => Promise<void>
 
-// Thread model preference through deep research without changing every function signature
+/**
+ * Module-level model override, set by deepResearch() so inner functions
+ * (generateSearchQueries, extractLearnings, generateReport) use the same model
+ * without threading the preference through every call.
+ */
 let _researchModelOverride: string | undefined
 
 /**
@@ -316,6 +356,12 @@ export async function deepResearch(
   return result
 }
 
+/**
+ * Purpose: Strips inline styles, <style>/<script> tags, and top-level HTML structure
+ * tags from report content so it can be safely embedded inside the PDF template shell.
+ * Args:
+ * - content: string — raw HTML report body
+ */
 function normalizeReportHtmlForPdf(content: string): string {
   return content
     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -325,6 +371,14 @@ function normalizeReportHtmlForPdf(content: string): string {
     .trim()
 }
 
+/**
+ * Purpose: Generates the final HTML research report with a summary from accumulated learnings and sources.
+ * Deduplicates learnings and sources, caps context to avoid excessive token usage,
+ * and uses a <!-- SUMMARY: ... --> HTML comment delimiter to extract the summary from the output.
+ * Args:
+ * - research: Research — the accumulated research state (query, learnings, sources)
+ * Returns: { summary: string, report: string }
+ */
 async function generateReport(
   research: Research,
 ): Promise<{ summary: string; report: string }> {

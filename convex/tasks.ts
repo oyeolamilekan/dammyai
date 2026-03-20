@@ -16,12 +16,21 @@ import type { ActionCtx } from './_generated/server'
 
 const taskTypeValidator = v.union(v.literal('one_off'), v.literal('recurring'))
 
+/** Clamps page number to a minimum of 1. */
 const normalizePage = (page?: number) => Math.max(1, page ?? 1)
+
+/** Clamps limit to the range [1, 50], defaulting to 20. */
 const normalizeLimit = (limit?: number) =>
   Math.min(50, Math.max(1, limit ?? 20))
+
+/** Shorthand for current epoch millis. */
 const now = () => Date.now()
 const MIN_INTERVAL_MS = 60_000 // 1 minute
 
+/**
+ * Purpose: Coerces any tool output value into a string for logging.
+ * Handles strings directly, serializes objects via JSON, and falls back to String().
+ */
 const formatToolOutputStr = (output: unknown): string => {
   if (typeof output === 'string') return output
   try {
@@ -31,6 +40,14 @@ const formatToolOutputStr = (output: unknown): string => {
   }
 }
 
+/**
+ * Purpose: Slices an array into a page and returns pagination metadata.
+ * Args:
+ * - items: Array<T> — the full result set
+ * - page: number — 1-based page number
+ * - limit: number — items per page
+ * Returns: { items, total, page, limit, totalPages }
+ */
 const paginate = <T>(items: Array<T>, page: number, limit: number) => {
   const total = items.length
   const totalPages = Math.max(1, Math.ceil(total / limit))
@@ -290,6 +307,22 @@ export const applyTaskExecution = internalMutation({
   },
 })
 
+/**
+ * Purpose: Core task execution logic — claims the task, runs the AI prompt with
+ * the task system prompt, logs each tool-call step, delivers the result via Telegram,
+ * and records the final outcome.
+ * Flow:
+ *   1. Loads and validates the task
+ *   2. Claims the task immediately (disable one_off / advance recurring nextRunAt)
+ *      to prevent duplicate execution by the next cron tick
+ *   3. Creates an execution log entry
+ *   4. Runs the AI prompt with TASK_SYSTEM_PROMPT and logs each tool step
+ *   5. Delivers the result to Telegram (best-effort)
+ *   6. Updates the task with the final result and log ID
+ * Args:
+ * - ctx: ActionCtx — the Convex action context
+ * - id: Id<'scheduledTasks'> — the task to execute
+ */
 const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
   const task = await ctx.runQuery(internal.tasks.getTaskById, { id })
   if (!task || !task.enabled) {
@@ -377,6 +410,13 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
   })
 }
 
+/**
+ * Purpose: Public entry point for executing a single scheduled task by ID.
+ * Delegates to executeTaskImpl. Called by the Convex scheduler for one_off tasks.
+ * Function type: internalAction
+ * Args:
+ * - id: v.id('scheduledTasks')
+ */
 export const executeTask = internalAction({
   args: { id: v.id('scheduledTasks') },
   handler: async (ctx, args) => {
@@ -384,6 +424,11 @@ export const executeTask = internalAction({
   },
 })
 
+/**
+ * Purpose: Cron handler — fetches all tasks due for execution and runs them sequentially.
+ * Called every minute by the cron job defined in convex/crons.ts.
+ * Function type: internalAction
+ */
 export const runDueTasks = internalAction({
   args: {},
   handler: async (ctx) => {

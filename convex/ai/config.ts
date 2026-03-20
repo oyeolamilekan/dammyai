@@ -48,13 +48,26 @@ export const normalizeMemoryModelId = () => {
  * Args:
  * - basePrompt: string
  * - coreMemories: Array<{ key: string; value: string }>
+ * - timezone: string (optional) — IANA timezone identifier (e.g. 'America/New_York')
  */
 export const buildSystemPrompt = (
   basePrompt: string,
   coreMemories: Array<{ key: string; value: string }>,
+  timezone?: string,
 ) => {
-  let prompt =
-    basePrompt + `\n\nCurrent UTC time: ${new Date().toISOString()}`
+  const utcNow = new Date()
+  let timeContext = `Current UTC time: ${utcNow.toISOString()}`
+
+  if (timezone) {
+    try {
+      const localTime = utcNow.toLocaleString('en-US', { timeZone: timezone })
+      timeContext += ` (User timezone: ${timezone}, local time: ${localTime})`
+    } catch {
+      // Invalid timezone — fall back to UTC only
+    }
+  }
+
+  let prompt = basePrompt + `\n\n${timeContext}`
 
   if (coreMemories.length > 0) {
     const coreBlock = coreMemories

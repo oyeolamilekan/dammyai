@@ -57,6 +57,40 @@ const SEARCH_PROVIDERS = [
   { label: 'Tavily', value: 'tavily' },
 ] as const
 
+/** Fallback list for browsers that don't support Intl.supportedValuesOf. */
+const COMMON_TIMEZONES = [
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Anchorage',
+  'Pacific/Honolulu',
+  'America/Toronto',
+  'America/Vancouver',
+  'America/Sao_Paulo',
+  'America/Argentina/Buenos_Aires',
+  'America/Mexico_City',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Moscow',
+  'Europe/Istanbul',
+  'Africa/Cairo',
+  'Africa/Lagos',
+  'Africa/Johannesburg',
+  'Africa/Nairobi',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Shanghai',
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'Asia/Singapore',
+  'Asia/Hong_Kong',
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Pacific/Auckland',
+]
+
 function PreferencesPage() {
   const convexApi = api as any
   const soul = useQuery(convexApi.soul.getSoul)
@@ -65,6 +99,7 @@ function PreferencesPage() {
   const [model, setModel] = useState('')
   const [researchModel, setResearchModel] = useState('')
   const [searchProvider, setSearchProvider] = useState('exa')
+  const [timezone, setTimezone] = useState('')
   const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
@@ -72,6 +107,7 @@ function PreferencesPage() {
       setModel(soul?.modelPreference ?? '')
       setResearchModel(soul?.researchModelPreference ?? '')
       setSearchProvider(soul?.searchProvider ?? 'exa')
+      setTimezone(soul?.timezone ?? '')
     }
   }, [soul])
 
@@ -84,6 +120,7 @@ function PreferencesPage() {
         modelPreference: model || undefined,
         researchModelPreference: researchModel || undefined,
         searchProvider: searchProvider as 'exa' | 'tavily',
+        timezone: timezone || undefined,
       })
       toast.success('Preferences saved')
       setDirty(false)
@@ -192,6 +229,50 @@ function PreferencesPage() {
               </select>
               <p className="text-muted-foreground text-xs">
                 The search engine the bot uses for web searches and research.
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Timezone</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {soul === undefined ? (
+            <Skeleton className="h-9 w-full rounded-md" />
+          ) : (
+            <>
+              <Label htmlFor="timezone-select">Your timezone</Label>
+              <select
+                id="timezone-select"
+                value={timezone}
+                onChange={(e) => {
+                  setTimezone(e.target.value)
+                  setDirty(true)
+                }}
+                className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+              >
+                <option value="">Auto (UTC)</option>
+                {(() => {
+                  try {
+                    return Intl.supportedValuesOf('timeZone').map((tz) => (
+                      <option key={tz} value={tz}>
+                        {tz.replace(/_/g, ' ')}
+                      </option>
+                    ))
+                  } catch {
+                    return COMMON_TIMEZONES.map((tz) => (
+                      <option key={tz} value={tz}>
+                        {tz.replace(/_/g, ' ')}
+                      </option>
+                    ))
+                  }
+                })()}
+              </select>
+              <p className="text-muted-foreground text-xs">
+                Used by the assistant for scheduling and time-aware responses.
               </p>
             </>
           )}
