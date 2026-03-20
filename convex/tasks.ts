@@ -166,11 +166,6 @@ export const createTask = mutation({
       updatedAt: timestamp,
     })
 
-    if (args.type === 'one_off' && args.runAt) {
-      await ctx.scheduler.runAt(args.runAt, internal.tasks.executeTask, {
-        id: taskId,
-      })
-    }
     return taskId
   },
 })
@@ -276,6 +271,53 @@ export const getTaskById = internalQuery({
 })
 
 /**
+ * Purpose: Atomically claims a due task for execution, preventing concurrent runners
+ * from executing the same task twice. Returns task payload + claim metadata when successful.
+ * Function type: internalMutation
+ * Args:
+ * - id: v.id('scheduledTasks')
+ * - nowMs: v.number()
+ */
+export const claimTaskForExecution = internalMutation({
+  args: {
+    id: v.id('scheduledTasks'),
+    nowMs: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get('scheduledTasks', args.id)
+    if (!task || !task.enabled) {
+      return { claimed: false as const }
+    }
+    if (!task.nextRunAt || task.nextRunAt > args.nowMs) {
+      return { claimed: false as const }
+    }
+
+    const ranAt = args.nowMs
+    const nextRunAt =
+      task.type === 'recurring' && task.intervalMs
+        ? ranAt + task.intervalMs
+        : undefined
+    const enabled = task.type === 'recurring'
+
+    await ctx.db.patch('scheduledTasks', args.id, {
+      lastRunAt: ranAt,
+      nextRunAt,
+      enabled,
+      updatedAt: ranAt,
+    })
+
+    return {
+      claimed: true as const,
+      userId: task.userId,
+      prompt: task.prompt,
+      ranAt,
+      nextRunAt: nextRunAt ?? null,
+      enabled,
+    }
+  },
+})
+
+/**
  * Purpose: Applies execution results back onto a scheduled task after it finishes running.
  * Function type: internalMutation
  * Args:
@@ -324,27 +366,14 @@ export const applyTaskExecution = internalMutation({
  * - id: Id<'scheduledTasks'> — the task to execute
  */
 const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
-  const task = await ctx.runQuery(internal.tasks.getTaskById, { id })
-  if (!task || !task.enabled) {
+  const claim = await ctx.runMutation(internal.tasks.claimTaskForExecution, {
+    id,
+    nowMs: now(),
+  })
+  if (!claim.claimed) {
     return
   }
-
-  // Claim the task immediately to prevent duplicate execution by the next cron tick.
-  // For one_off: disable. For recurring: advance nextRunAt so cron won't re-pick it.
-  const ranAt = now()
-  const nextRunAt =
-    task.type === 'recurring' && task.intervalMs
-      ? ranAt + task.intervalMs
-      : undefined
-
-  await ctx.runMutation(internal.tasks.applyTaskExecution, {
-    id,
-    result: task.lastResult ?? '',
-    ranAt,
-    nextRunAt,
-    enabled: task.type === 'recurring',
-    lastLogId: task.lastLogId,
-  })
+  const { userId, prompt, ranAt, nextRunAt, enabled } = claim
   let stepIndex = 0
 
   // Create execution log
@@ -356,8 +385,8 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
   let failed = false
   try {
     result = await executeAIPromptImpl(ctx, {
-      userId: task.userId,
-      prompt: task.prompt,
+      userId,
+      prompt,
       systemPrompt: TASK_SYSTEM_PROMPT,
       onToolCall: async (step) => {
         await ctx.runMutation(internal.taskLogs.appendLogStep, {
@@ -390,7 +419,7 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
   try {
     const integration = await ctx.runQuery(
       internal.telegramStore.getIntegrationByUserId,
-      { userId: task.userId },
+      { userId },
     )
     if (integration?.telegramChatId) {
       await sendTelegramMessage(integration.telegramChatId, result)
@@ -404,8 +433,8 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
     id,
     result,
     ranAt,
-    nextRunAt,
-    enabled: task.type === 'recurring',
+    nextRunAt: nextRunAt ?? undefined,
+    enabled,
     lastLogId: logId,
   })
 }
