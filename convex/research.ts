@@ -15,6 +15,7 @@ import { markdownToTelegramHtml } from './lib/telegramFormat'
 import type { Id } from './_generated/dataModel'
 import type { ActionCtx } from './_generated/server'
 
+/** Shorthand for current epoch millis. */
 const now = () => Date.now()
 
 /**
@@ -123,15 +124,37 @@ export const getPendingResearchJobs = internalQuery({
   },
 })
 
+/**
+ * Purpose: Core research execution pipeline — claims the job atomically, runs deep research
+ * with progress checkpoints, stores the completed report, and delivers results via Telegram.
+ * Flow:
+ *   1. Atomically claims the job (pending → running) to prevent duplicate execution
+ *   2. Loads user's research model preference from soul settings
+ *   3. Runs deepResearch() with a progress callback that persists checkpoints
+ *      and checks for cancellation between rounds
+ *   4. Stores the completed report HTML and summary
+ *   5. Sends a Telegram summary message + PDF attachment (best-effort)
+ * Args:
+ * - ctx: ActionCtx — the Convex action context
+ * - id: Id<'backgroundResearch'> — the research job to execute
+ */
 const processResearchJobImpl = async (
   ctx: ActionCtx,
   id: Id<'backgroundResearch'>,
 ) => {
-  const existing = await ctx.runQuery(internal.research.getResearchById, { id })
-  if (!existing || existing.status !== 'pending') {
+  // Atomic claim: prevents the TOCTOU race between the scheduler and the cron
+  const { claimed } = await ctx.runMutation(
+    internal.research.claimResearchJob,
+    { id },
+  )
+  if (!claimed) {
     return
   }
-  await ctx.runMutation(internal.research.markResearchRunning, { id })
+
+  const existing = await ctx.runQuery(internal.research.getResearchById, { id })
+  if (!existing) {
+    return
+  }
 
   // Fetch user's research model preference
   const soul = await ctx.runQuery(internal.aiStore.getSoulByUserId, {
@@ -204,6 +227,18 @@ const processResearchJobImpl = async (
   }
 }
 
+/**
+ * Purpose: Delivers a completed research report to the user's linked Telegram account.
+ * Sends a formatted summary message followed by a PDF document attachment.
+ * The PDF is generated via the standalone PDF worker service from the wrapped report HTML.
+ * Fails silently if Telegram is not configured or the user has no linked chat.
+ * Args:
+ * - ctx: ActionCtx — the Convex action context
+ * - userId: string — the user who owns the research
+ * - prompt: string — the original research topic (used as PDF title)
+ * - summary: string — short summary text for the Telegram message
+ * - rawReport: string — the HTML report body (without document shell)
+ */
 async function sendResearchToTelegram(
   ctx: ActionCtx,
   userId: string,
@@ -273,6 +308,29 @@ export const markResearchRunning = internalMutation({
     await ctx.db.patch('backgroundResearch', args.id, {
       status: 'running',
     })
+  },
+})
+
+/**
+ * Purpose: Atomically claims a pending research job by transitioning its status from 'pending' to 'running'.
+ * Returns { claimed: true } if the job was successfully claimed, or { claimed: false } if
+ * the job doesn't exist, isn't pending, or was already claimed by another runner.
+ * This prevents the TOCTOU race between the immediate scheduler and the cron.
+ * Function type: internalMutation
+ * Args:
+ * - id: v.id('backgroundResearch')
+ */
+export const claimResearchJob = internalMutation({
+  args: { id: v.id('backgroundResearch') },
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get('backgroundResearch', args.id)
+    if (!job || job.status !== 'pending') {
+      return { claimed: false }
+    }
+    await ctx.db.patch('backgroundResearch', args.id, {
+      status: 'running',
+    })
+    return { claimed: true }
   },
 })
 
@@ -368,6 +426,14 @@ export const addCheckpoint = internalMutation({
   },
 })
 
+/**
+ * Purpose: Public entry point for executing a single research job by ID.
+ * Delegates to processResearchJobImpl. Called by the Convex scheduler immediately
+ * after a research job is created.
+ * Function type: internalAction
+ * Args:
+ * - id: v.id('backgroundResearch')
+ */
 export const processResearchJob = internalAction({
   args: { id: v.id('backgroundResearch') },
   handler: async (ctx, args) => {
@@ -375,6 +441,13 @@ export const processResearchJob = internalAction({
   },
 })
 
+/**
+ * Purpose: Cron handler — fetches all pending research jobs and processes them sequentially.
+ * Acts as a safety net for jobs that weren't picked up by the immediate scheduler.
+ * Called every minute by the cron job defined in convex/crons.ts.
+ * Duplicate execution is prevented by the atomic claimResearchJob mutation.
+ * Function type: internalAction
+ */
 export const processPendingResearch = internalAction({
   args: {},
   handler: async (ctx) => {
