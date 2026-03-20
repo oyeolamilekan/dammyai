@@ -1,11 +1,11 @@
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { internalMutation, internalQuery } from './_generated/server'
+import { now } from './lib/time'
+import { computeFirstRunAt, validateTaskArgs } from './lib/taskValidation'
 import type { MutationCtx } from './_generated/server'
 
 const taskTypeValidator = v.union(v.literal('one_off'), v.literal('recurring'))
-const now = () => Date.now()
-const MIN_INTERVAL_MS = 60_000
 
 const getArchivalMemoryForUser = async (
   ctx: MutationCtx,
@@ -297,30 +297,10 @@ export const createScheduledTask = internalMutation({
     if (!prompt) {
       throw new Error('Prompt is required')
     }
-    if (args.type === 'recurring') {
-      if (!args.intervalMs) {
-        throw new Error('Interval is required for recurring tasks')
-      }
-      if (args.intervalMs < MIN_INTERVAL_MS) {
-        throw new Error('Interval must be at least 1 minute')
-      }
-    }
-    if (args.type === 'one_off') {
-      if (!args.runAt) {
-        throw new Error('Run time is required for one-off tasks')
-      }
-      if (args.runAt <= now()) {
-        throw new Error('Run time must be in the future')
-      }
-    }
 
+    validateTaskArgs(args)
+    const firstRunAt = computeFirstRunAt(args)
     const timestamp = now()
-    const firstRunAt =
-      args.type === 'one_off'
-        ? args.runAt!
-        : args.runAt && args.runAt > timestamp
-          ? args.runAt
-          : timestamp + (args.intervalMs ?? 0)
 
     const id = await ctx.db.insert('scheduledTasks', {
       userId: args.userId,
@@ -454,63 +434,9 @@ export const cancelBackgroundResearch = internalMutation({
     id: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let target: {
-      _id: string
-      status: 'pending' | 'running' | 'completed' | 'failed'
-      userId: string
-    } | null = null
-
-    if (args.id) {
-      const row = await getResearchJobForUser(ctx, args.userId, args.id)
-      target = row
-        ? {
-            _id: row._id,
-            status: row.status,
-            userId: row.userId,
-          }
-        : null
-      if (!target || target.userId !== args.userId) {
-        return false
-      }
-      if (target.status !== 'pending' && target.status !== 'running') {
-        return false
-      }
-    } else {
-      const [latestPending, latestRunning] = await Promise.all([
-        ctx.db
-          .query('backgroundResearch')
-          .withIndex('userId_status_createdAt', (q) =>
-            q.eq('userId', args.userId).eq('status', 'pending'),
-          )
-          .order('desc')
-          .take(1),
-        ctx.db
-          .query('backgroundResearch')
-          .withIndex('userId_status_createdAt', (q) =>
-            q.eq('userId', args.userId).eq('status', 'running'),
-          )
-          .order('desc')
-          .take(1),
-      ])
-      const latestCandidates = []
-      if (latestPending.length > 0) {
-        latestCandidates.push(latestPending[0])
-      }
-      if (latestRunning.length > 0) {
-        latestCandidates.push(latestRunning[0])
-      }
-      if (latestCandidates.length === 0) {
-        target = null
-      } else {
-        latestCandidates.sort((a, b) => b._creationTime - a._creationTime)
-        const latest = latestCandidates[0]
-        target = {
-          _id: String(latest._id),
-          status: latest.status,
-          userId: latest.userId,
-        }
-      }
-    }
+    const target = args.id
+      ? await findResearchById(ctx, args.userId, args.id)
+      : await findLatestActiveResearch(ctx, args.userId)
 
     if (!target) {
       return false
@@ -537,3 +463,47 @@ export const cancelBackgroundResearch = internalMutation({
     return true
   },
 })
+
+async function findResearchById(
+  ctx: MutationCtx,
+  userId: string,
+  id: string,
+): Promise<{ _id: string; status: 'pending' | 'running' | 'completed' | 'failed'; userId: string } | null> {
+  const row = await getResearchJobForUser(ctx, userId, id)
+  if (!row || row.userId !== userId) return null
+  if (row.status !== 'pending' && row.status !== 'running') return null
+  return { _id: row._id, status: row.status, userId: row.userId }
+}
+
+async function findLatestActiveResearch(
+  ctx: MutationCtx,
+  userId: string,
+): Promise<{ _id: string; status: 'pending' | 'running' | 'completed' | 'failed'; userId: string } | null> {
+  const [pendingJobs, runningJobs] = await Promise.all([
+    ctx.db
+      .query('backgroundResearch')
+      .withIndex('userId_status_createdAt', (q) =>
+        q.eq('userId', userId).eq('status', 'pending'),
+      )
+      .order('desc')
+      .take(1),
+    ctx.db
+      .query('backgroundResearch')
+      .withIndex('userId_status_createdAt', (q) =>
+        q.eq('userId', userId).eq('status', 'running'),
+      )
+      .order('desc')
+      .take(1),
+  ])
+
+  const activeJobs = [...pendingJobs, ...runningJobs].sort(
+    (a, b) => b._creationTime - a._creationTime,
+  )
+  if (activeJobs.length === 0) return null
+  const latestActiveJob = activeJobs[0]
+  return {
+    _id: String(latestActiveJob._id),
+    status: latestActiveJob.status,
+    userId: latestActiveJob.userId,
+  }
+}

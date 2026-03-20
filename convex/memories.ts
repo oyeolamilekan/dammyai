@@ -1,31 +1,7 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { requireUserId } from './lib/session'
-
-const defaultPage = 1
-const defaultLimit = 20
-
-const pageArgs = {
-  page: v.optional(v.number()),
-  limit: v.optional(v.number()),
-}
-
-const normalizePage = (page?: number) => Math.max(1, page ?? defaultPage)
-const normalizeLimit = (limit?: number) =>
-  Math.min(50, Math.max(1, limit ?? defaultLimit))
-
-const paginate = <T>(items: Array<T>, page: number, limit: number) => {
-  const total = items.length
-  const totalPages = Math.max(1, Math.ceil(total / limit))
-  const start = (page - 1) * limit
-  return {
-    items: items.slice(start, start + limit),
-    total,
-    page,
-    limit,
-    totalPages,
-  }
-}
+import { normalizeLimit, normalizePage, pageArgs, paginate } from './lib/pagination'
 
 /**
  * Purpose: Lists paginated conversation history for the signed-in user.

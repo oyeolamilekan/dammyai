@@ -11,12 +11,10 @@ import { deepResearch, wrapReportHtml } from './lib/deepResearch'
 import { getOptionalEnv } from './lib/env'
 import { renderPdfViaApi } from './lib/pdfApi'
 import { getUserId, requireUserId } from './lib/session'
+import { now } from './lib/time'
 import { markdownToTelegramHtml } from './lib/telegramFormat'
 import type { Id } from './_generated/dataModel'
 import type { ActionCtx } from './_generated/server'
-
-/** Shorthand for current epoch millis. */
-const now = () => Date.now()
 
 /**
  * Purpose: Lists research jobs for the current user, including status, summary, and checkpoints.

@@ -8,6 +8,10 @@ import {
   query,
 } from './_generated/server'
 import { executeAIPromptImpl } from './ai/engine'
+import { formatToolOutput } from './ai/tools'
+import { now } from './lib/time'
+import { normalizeLimit, normalizePage, paginate } from './lib/pagination'
+import { computeFirstRunAt, validateTaskArgs } from './lib/taskValidation'
 import { getUserId, requireUserId } from './lib/session'
 import { sendTelegramMessage } from './telegram'
 import { TASK_SYSTEM_PROMPT } from './ai/prompts'
@@ -15,51 +19,6 @@ import type { Id } from './_generated/dataModel'
 import type { ActionCtx } from './_generated/server'
 
 const taskTypeValidator = v.union(v.literal('one_off'), v.literal('recurring'))
-
-/** Clamps page number to a minimum of 1. */
-const normalizePage = (page?: number) => Math.max(1, page ?? 1)
-
-/** Clamps limit to the range [1, 50], defaulting to 20. */
-const normalizeLimit = (limit?: number) =>
-  Math.min(50, Math.max(1, limit ?? 20))
-
-/** Shorthand for current epoch millis. */
-const now = () => Date.now()
-const MIN_INTERVAL_MS = 60_000 // 1 minute
-
-/**
- * Purpose: Coerces any tool output value into a string for logging.
- * Handles strings directly, serializes objects via JSON, and falls back to String().
- */
-const formatToolOutputStr = (output: unknown): string => {
-  if (typeof output === 'string') return output
-  try {
-    return JSON.stringify(output)
-  } catch {
-    return String(output)
-  }
-}
-
-/**
- * Purpose: Slices an array into a page and returns pagination metadata.
- * Args:
- * - items: Array<T> — the full result set
- * - page: number — 1-based page number
- * - limit: number — items per page
- * Returns: { items, total, page, limit, totalPages }
- */
-const paginate = <T>(items: Array<T>, page: number, limit: number) => {
-  const total = items.length
-  const totalPages = Math.max(1, Math.ceil(total / limit))
-  const start = (page - 1) * limit
-  return {
-    items: items.slice(start, start + limit),
-    total,
-    page,
-    limit,
-    totalPages,
-  }
-}
 
 /**
  * Purpose: Lists the signed-in user's scheduled tasks with simple pagination metadata.
@@ -128,31 +87,9 @@ export const createTask = mutation({
       throw new Error('Prompt is required')
     }
 
+    validateTaskArgs(args)
+    const firstRunAt = computeFirstRunAt(args)
     const timestamp = now()
-    if (args.type === 'recurring') {
-      if (!args.intervalMs) {
-        throw new Error('Interval is required for recurring tasks')
-      }
-      if (args.intervalMs < MIN_INTERVAL_MS) {
-        throw new Error('Interval must be at least 1 minute')
-      }
-    }
-    if (args.type === 'one_off') {
-      if (!args.runAt) {
-        throw new Error('Run time is required for one-off tasks')
-      }
-      if (args.runAt <= timestamp) {
-        throw new Error('Run time must be in the future')
-      }
-    }
-
-    // For recurring: runAt is the optional first execution time, defaults to now + interval
-    const firstRunAt =
-      args.type === 'one_off'
-        ? args.runAt!
-        : args.runAt && args.runAt > timestamp
-          ? args.runAt
-          : timestamp + (args.intervalMs ?? 0)
 
     const taskId = await ctx.db.insert('scheduledTasks', {
       userId,
@@ -396,7 +333,7 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
             toolName: step.toolName,
             toolCallId: step.toolCallId,
             input: JSON.stringify(step.input).slice(0, 2000),
-            output: formatToolOutputStr(step.output).slice(0, 4000),
+            output: formatToolOutput(step.output).slice(0, 4000),
             timestamp: Date.now(),
           },
         })

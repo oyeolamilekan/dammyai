@@ -2,6 +2,8 @@ import { v } from 'convex/values'
 import { internalMutation, mutation, query } from './_generated/server'
 import { getRequiredEnv } from './lib/env'
 import { getUserId, requireUserId } from './lib/session'
+import { now } from './lib/time'
+import type { MutationCtx } from './_generated/server'
 
 const providerValidator = v.union(
   v.literal('telegram'),
@@ -12,7 +14,20 @@ const providerValidator = v.union(
   v.literal('exa'),
 )
 
-const now = () => Date.now()
+type Provider = 'telegram' | 'gmail' | 'google_calendar' | 'todoist' | 'notion' | 'exa'
+
+/** Returns the integration row for a given userId + provider, or null. */
+const getIntegrationByProvider = (
+  ctx: MutationCtx,
+  userId: string,
+  provider: Provider,
+) =>
+  ctx.db
+    .query('integrations')
+    .withIndex('userId_provider', (q) =>
+      q.eq('userId', userId).eq('provider', provider),
+    )
+    .unique()
 
 /**
  * Purpose: Lists the signed-in user's configured integrations for the dashboard.
@@ -88,12 +103,7 @@ export const upsertIntegration = mutation({
       throw new Error('accessToken is required for this provider')
     }
 
-    const existing = await ctx.db
-      .query('integrations')
-      .withIndex('userId_provider', (q) =>
-        q.eq('userId', userId).eq('provider', args.provider),
-      )
-      .unique()
+    const existing = await getIntegrationByProvider(ctx, userId, args.provider)
 
     const payload = {
       apiKey: args.apiKey,
@@ -132,17 +142,10 @@ export const deleteIntegration = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx)
-    const existing = await ctx.db
-      .query('integrations')
-      .withIndex('userId_provider', (q) =>
-        q.eq('userId', userId).eq('provider', args.provider),
-      )
-      .unique()
-
+    const existing = await getIntegrationByProvider(ctx, userId, args.provider)
     if (!existing) {
       throw new Error('Integration not found')
     }
-    await ctx.db.delete('integrations', existing._id)
     return { success: true }
   },
 })
@@ -156,12 +159,7 @@ export const createTelegramLink = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await requireUserId(ctx)
-    let existing = await ctx.db
-      .query('integrations')
-      .withIndex('userId_provider', (q) =>
-        q.eq('userId', userId).eq('provider', 'telegram'),
-      )
-      .unique()
+    let existing = await getIntegrationByProvider(ctx, userId, 'telegram')
 
     const botUsername = getRequiredEnv('TELEGRAM_BOT_USERNAME')
     const linkingCode =
@@ -216,12 +214,7 @@ export const upsertIntegrationInternal = internalMutation({
     scope: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query('integrations')
-      .withIndex('userId_provider', (q) =>
-        q.eq('userId', args.userId).eq('provider', args.provider),
-      )
-      .unique()
+    const existing = await getIntegrationByProvider(ctx, args.userId, args.provider)
 
     const payload = {
       apiKey: args.apiKey,
