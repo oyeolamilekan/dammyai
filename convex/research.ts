@@ -159,6 +159,7 @@ const processResearchJobImpl = async (
     userId: existing.userId,
   })
   const researchModel = soul?.researchModelPreference
+  const searchProvider = soul?.searchProvider ?? 'exa'
   const depth = Math.min(4, Math.max(1, soul?.researchDepth ?? 2))
   const breadth = Math.min(6, Math.max(2, soul?.researchBreadth ?? 3))
 
@@ -189,6 +190,7 @@ const processResearchJobImpl = async (
       breadth,
       researchModel,
       progress,
+      searchProvider,
     )
 
     // Store the raw report HTML (without full-document wrapper) for clean frontend display

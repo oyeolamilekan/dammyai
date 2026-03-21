@@ -110,13 +110,65 @@ async function searchExa(
   }))
 }
 
+/**
+ * Purpose: Executes a single web search via the Tavily API and returns structured results.
+ * Returns an empty array when the TAVILY_API_KEY is not configured or the request fails.
+ * Args:
+ * - query: string — the search query
+ * - numResults: number — max results to return (default 5)
+ */
+async function searchTavily(
+  query: string,
+  numResults = 5,
+): Promise<Array<SearchResult>> {
+  const apiKey = getOptionalEnv('TAVILY_API_KEY')
+  if (!apiKey) return []
+
+  const res = await fetch('https://api.tavily.com/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      api_key: apiKey,
+      query,
+      max_results: Math.min(numResults, 10),
+      search_depth: 'advanced',
+      include_answer: false,
+    }),
+  })
+
+  if (!res.ok) return []
+
+  const data = (await res.json()) as {
+    results?: Array<{ title: string; url: string; content?: string }>
+  }
+
+  return (data.results ?? []).map((r) => ({
+    title: r.title,
+    url: r.url,
+    content: r.content ?? '',
+  }))
+}
+
+/**
+ * Dispatches a single search query to the configured provider.
+ * Falls back to Exa when provider is unset or unknown.
+ */
+function searchWithProvider(
+  query: string,
+  numResults: number,
+): Promise<Array<SearchResult>> {
+  return _searchProviderOverride === 'tavily'
+    ? searchTavily(query, numResults)
+    : searchExa(query, numResults)
+}
+
 /** Run searches for multiple queries concurrently and return flat results. */
 async function searchParallel(
   queries: Array<string>,
   numResults = 5,
 ): Promise<Array<SearchResult>> {
   const settled = await Promise.allSettled(
-    queries.map((q) => searchExa(q, numResults)),
+    queries.map((q) => searchWithProvider(q, numResults)),
   )
   return settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
 }
@@ -218,6 +270,13 @@ export type ProgressCallback = (
 let _researchModelOverride: string | undefined
 
 /**
+ * Module-level search provider override, set by deepResearch() so searchParallel
+ * dispatches to the correct provider without threading it through every call.
+ * Defaults to 'exa' when unset.
+ */
+let _searchProviderOverride: 'exa' | 'tavily' | undefined
+
+/**
  * Purpose: Runs the full deep-research workflow, including query generation, parallel search, learning extraction, follow-up rounds, and final report generation.
  * Function type: helper
  * Args:
@@ -226,6 +285,7 @@ let _researchModelOverride: string | undefined
  * - breadth: number
  * - modelPreference: string | undefined
  * - onProgress: ProgressCallback | undefined
+ * - searchProvider: 'exa' | 'tavily' | undefined — which search API to use (defaults to exa)
  */
 export async function deepResearch(
   query: string,
@@ -233,8 +293,10 @@ export async function deepResearch(
   breadth = 3,
   modelPreference?: string,
   onProgress?: ProgressCallback,
+  searchProvider?: 'exa' | 'tavily',
 ): Promise<{ summary: string; report: string }> {
   _researchModelOverride = modelPreference
+  _searchProviderOverride = searchProvider
   const research = createEmptyResearch(query)
 
   const progress = onProgress ?? (async () => {})
