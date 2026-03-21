@@ -62,9 +62,12 @@ export const buildSystemPrompt = (
     try {
       const localTime = utcNow.toLocaleString('en-US', { timeZone: timezone })
       timeContext += ` (User timezone: ${timezone}, local time: ${localTime})`
+      timeContext += `\nUse **${timezone}** for all time expressions in your responses and when calculating scheduled task times.`
     } catch {
       // Invalid timezone — fall back to UTC only
     }
+  } else {
+    timeContext += `\nNo timezone is set for this user. Use UTC for time calculations. If the user makes any time-related request (scheduling, reminders, asking the time), politely suggest once that they set their timezone in Settings → Preferences for accurate local times.`
   }
 
   let prompt = basePrompt + `\n\n${timeContext}`

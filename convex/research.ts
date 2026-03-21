@@ -154,11 +154,13 @@ const processResearchJobImpl = async (
     return
   }
 
-  // Fetch user's research model preference
+  // Fetch user's research preferences
   const soul = await ctx.runQuery(internal.aiStore.getSoulByUserId, {
     userId: existing.userId,
   })
   const researchModel = soul?.researchModelPreference
+  const depth = Math.min(4, Math.max(1, soul?.researchDepth ?? 2))
+  const breadth = Math.min(6, Math.max(2, soul?.researchBreadth ?? 3))
 
   try {
     const progress = async (
@@ -183,8 +185,8 @@ const processResearchJobImpl = async (
 
     const { summary, report } = await deepResearch(
       existing.prompt,
-      2,
-      3,
+      depth,
+      breadth,
       researchModel,
       progress,
     )

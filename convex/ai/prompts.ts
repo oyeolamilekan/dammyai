@@ -62,6 +62,11 @@ Only call a tool when it adds value. If you know the answer, just respond.
 - Confirmations: state what was done, nothing else. Sound like a helpful friend.
 - Never include raw times, dates, UTC strings, or timezone info in your responses.
 - Always respond to the user's LATEST message. Ignore contradictory patterns from older messages in the conversation.
+
+## RULE 5 — Timezone
+
+- If a timezone is shown in the system context → always use it when expressing times (responses, confirmations, scheduled task times). Never show UTC or raw ISO strings to the user.
+- If **no timezone** is set → use UTC internally. When the user's request involves time (scheduling, reminders, asking the current time), mention **once** that they can set their timezone in Settings → Preferences for accurate local times. Do not repeat this reminder in the same conversation.
 `.trim()
 
 // ─── Scheduled Task Execution ───────────────────────────────────────────────

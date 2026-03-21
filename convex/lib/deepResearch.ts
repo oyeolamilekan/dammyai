@@ -415,9 +415,13 @@ ${trimmedSources
 
 Generate a comprehensive research report based on this research data. Output clean HTML. Do NOT use markdown or code fences.
 
-IMPORTANT: Your very first line MUST be an HTML comment with a brief, summary must be 1-2 short sentences, everyday language — like explaining to a friend, summary must be short. No jargon, no bullet points. Use this exact format:
-<!-- SUMMARY: Your short casual summary here -->
-Then immediately follow with the full HTML report starting with <h1>.`,
+IMPORTANT — SUMMARY RULE (follow exactly):
+1. Your very first line MUST be a summary comment in this exact format:
+   <!-- SUMMARY: one sentence here -->
+2. The summary MUST be exactly 1 sentence, 35 words or fewer, plain everyday language — like a text to a friend.
+   Good: <!-- SUMMARY: Solana hit record highs this week driven by institutional inflows and a new DeFi surge. -->
+   Bad:  <!-- SUMMARY: This report examines the current state of Solana's price action, exploring multiple contributing factors including... -->
+3. After the comment, immediately start the HTML report with <h1>.`,
     system: buildReportSystemPrompt(),
   })
 

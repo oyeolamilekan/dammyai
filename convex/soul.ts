@@ -28,6 +28,8 @@ export const getSoul = query({
       modelPreference: row.modelPreference ?? null,
       researchModelPreference: row.researchModelPreference ?? null,
       searchProvider: row.searchProvider ?? null,
+      researchDepth: row.researchDepth ?? null,
+      researchBreadth: row.researchBreadth ?? null,
       timezone: row.timezone ?? null,
       createdAt: new Date(row.createdAt).toISOString(),
       updatedAt: new Date(row.updatedAt).toISOString(),
@@ -36,13 +38,15 @@ export const getSoul = query({
 })
 
 /**
- * Purpose: Creates or updates the current user's assistant prompt, model, search, and timezone preferences.
+ * Purpose: Creates or updates the current user's assistant prompt, model, search, timezone, and research preferences.
  * Function type: mutation
  * Args:
  * - systemPrompt: v.string()
  * - modelPreference: v.optional(v.string())
  * - searchProvider: v.optional(v.union(v.literal('exa'), v.literal('tavily')))
  * - researchModelPreference: v.optional(v.string())
+ * - researchDepth: v.optional(v.number())
+ * - researchBreadth: v.optional(v.number())
  * - timezone: v.optional(v.string())
  */
 export const upsertSoul = mutation({
@@ -51,6 +55,8 @@ export const upsertSoul = mutation({
     modelPreference: v.optional(v.string()),
     searchProvider: v.optional(v.union(v.literal('exa'), v.literal('tavily'))),
     researchModelPreference: v.optional(v.string()),
+    researchDepth: v.optional(v.number()),
+    researchBreadth: v.optional(v.number()),
     timezone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -69,6 +75,8 @@ export const upsertSoul = mutation({
         modelPreference: args.modelPreference,
         searchProvider: args.searchProvider,
         researchModelPreference: args.researchModelPreference,
+        researchDepth: args.researchDepth,
+        researchBreadth: args.researchBreadth,
         timezone: args.timezone,
         classifierModelPreference: undefined,
         updatedAt: timestamp,
@@ -82,6 +90,8 @@ export const upsertSoul = mutation({
       modelPreference: args.modelPreference,
       searchProvider: args.searchProvider,
       researchModelPreference: args.researchModelPreference,
+      researchDepth: args.researchDepth,
+      researchBreadth: args.researchBreadth,
       timezone: args.timezone,
       createdAt: timestamp,
       updatedAt: timestamp,

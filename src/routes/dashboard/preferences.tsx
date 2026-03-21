@@ -98,6 +98,8 @@ function PreferencesPage() {
 
   const [model, setModel] = useState('')
   const [researchModel, setResearchModel] = useState('')
+  const [researchDepth, setResearchDepth] = useState(2)
+  const [researchBreadth, setResearchBreadth] = useState(3)
   const [searchProvider, setSearchProvider] = useState('exa')
   const [timezone, setTimezone] = useState('')
   const [dirty, setDirty] = useState(false)
@@ -106,6 +108,8 @@ function PreferencesPage() {
     if (soul !== undefined) {
       setModel(soul?.modelPreference ?? '')
       setResearchModel(soul?.researchModelPreference ?? '')
+      setResearchDepth(soul?.researchDepth ?? 2)
+      setResearchBreadth(soul?.researchBreadth ?? 3)
       setSearchProvider(soul?.searchProvider ?? 'exa')
       setTimezone(soul?.timezone ?? '')
     }
@@ -119,6 +123,8 @@ function PreferencesPage() {
           'You are a helpful personal assistant. You are friendly, concise, and action-oriented.',
         modelPreference: model || undefined,
         researchModelPreference: researchModel || undefined,
+        researchDepth,
+        researchBreadth,
         searchProvider: searchProvider as 'exa' | 'tavily',
         timezone: timezone || undefined,
       })
@@ -204,8 +210,57 @@ function PreferencesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Search Provider</CardTitle>
+          <CardTitle>Research Depth</CardTitle>
         </CardHeader>
+        <CardContent className="space-y-3">
+          {soul === undefined ? (
+            <Skeleton className="h-9 w-full rounded-md" />
+          ) : (
+            <>
+              <div className="space-y-1">
+                <Label htmlFor="depth-select">Depth (search rounds)</Label>
+                <select
+                  id="depth-select"
+                  value={researchDepth}
+                  onChange={(e) => {
+                    setResearchDepth(Number(e.target.value))
+                    setDirty(true)
+                  }}
+                  className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                >
+                  <option value={1}>1 — Quick</option>
+                  <option value={2}>2 — Standard (default)</option>
+                  <option value={3}>3 — Thorough</option>
+                  <option value={4}>4 — Deep</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="breadth-select">Breadth (queries per round)</Label>
+                <select
+                  id="breadth-select"
+                  value={researchBreadth}
+                  onChange={(e) => {
+                    setResearchBreadth(Number(e.target.value))
+                    setDirty(true)
+                  }}
+                  className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                >
+                  {[2, 3, 4, 5, 6].map((n) => (
+                    <option key={n} value={n}>
+                      {n}{n === 3 ? ' (default)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Higher depth and breadth produce more thorough reports but take longer.
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardContent className="space-y-3">
           {soul === undefined ? (
             <Skeleton className="h-9 w-full rounded-md" />

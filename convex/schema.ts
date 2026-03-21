@@ -75,6 +75,8 @@ export default defineSchema({
     searchProvider: v.optional(v.union(v.literal('exa'), v.literal('tavily'))),
     researchModelPreference: v.optional(v.string()),
     classifierModelPreference: v.optional(v.string()),
+    researchDepth: v.optional(v.number()),
+    researchBreadth: v.optional(v.number()),
     timezone: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
