@@ -8,7 +8,7 @@ import {
   query,
 } from './_generated/server'
 import { executeAIPromptImpl } from './ai/engine'
-import { formatToolOutput } from './ai/tools'
+import { formatToolOutput } from './ai/toolHelpers'
 import { now } from './lib/time'
 import { normalizeLimit, normalizePage, paginate } from './lib/pagination'
 import { computeFirstRunAt, validateTaskArgs } from './lib/taskValidation'

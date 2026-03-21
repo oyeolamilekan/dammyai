@@ -8,7 +8,8 @@ import {
   normalizeGatewayModelId,
 } from './config'
 import { extractAndSaveMemories } from './memory'
-import { createAgentTools, formatToolOutput } from './tools'
+import { formatToolOutput } from './toolHelpers'
+import { createAgentTools } from './tools'
 import type { AILikeCtx, AIPromptArgs, AssistantReplyArgs } from './types'
 /**
  * Purpose: Generates a plain assistant response using the configured model path without loading user-scoped history or memories.
