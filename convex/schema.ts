@@ -66,6 +66,7 @@ export default defineSchema({
     toolName: v.optional(v.string()),
     toolCallId: v.optional(v.string()),
     modelId: v.optional(v.string()),
+    searchProvider: v.optional(v.string()),
     createdAt: v.number(),
   }).index('userId_createdAt', ['userId', 'createdAt']),
   souls: defineTable({
@@ -132,6 +133,7 @@ export default defineSchema({
     ),
     result: v.optional(v.string()),
     summary: v.optional(v.string()),
+    searchProvider: v.optional(v.string()),
     error: v.optional(v.string()),
     checkpoints: v.optional(
       v.array(

@@ -62,13 +62,15 @@ export function createWebSearchTool() {
         return `No results found for "${query}".`
       }
 
-      return data.results
+      const results = data.results
         .map((r) => {
           const date = r.publishedDate ? ` (${r.publishedDate})` : ''
           const snippet = r.text ? `\n   ${r.text.slice(0, 300)}...` : ''
           return `🔗 ${r.title}${date}\n   ${r.url}${snippet}`
         })
         .join('\n\n')
+
+      return results
     },
   })
 }

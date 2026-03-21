@@ -89,6 +89,7 @@ export const saveMessage = internalMutation({
     toolName: v.optional(v.string()),
     toolCallId: v.optional(v.string()),
     modelId: v.optional(v.string()),
+    searchProvider: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await ctx.db.insert('messages', {
@@ -98,6 +99,7 @@ export const saveMessage = internalMutation({
       toolName: args.toolName,
       toolCallId: args.toolCallId,
       modelId: args.modelId,
+      searchProvider: args.searchProvider,
       createdAt: Date.now(),
     })
   },

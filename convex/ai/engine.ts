@@ -65,7 +65,11 @@ const saveUserMessage = (ctx: AILikeCtx, userId: string, content: string) =>
   })
 
 /** Creates the onStepFinish callback that persists tool results and fires the optional onToolCall hook. */
-const createStepHandler = (ctx: AILikeCtx, args: AIPromptArgs) => {
+const createStepHandler = (
+  ctx: AILikeCtx,
+  args: AIPromptArgs,
+  searchProvider?: string,
+) => {
   return async ({
     toolCalls,
     toolResults,
@@ -87,6 +91,7 @@ const createStepHandler = (ctx: AILikeCtx, args: AIPromptArgs) => {
       const row = toolResults[i]
       const toolName = row.toolName ?? 'tool'
       const content = formatToolOutput(row.output).slice(0, 4000)
+      const isWebSearch = toolName === 'webSearch'
 
       await ctx.runMutation(internal.aiStore.saveMessage, {
         userId: args.userId,
@@ -94,6 +99,7 @@ const createStepHandler = (ctx: AILikeCtx, args: AIPromptArgs) => {
         content,
         toolName,
         toolCallId: row.toolCallId,
+        searchProvider: isWebSearch ? (searchProvider ?? 'exa') : undefined,
       })
 
       if (args.onToolCall) {
@@ -185,7 +191,7 @@ export const executeAIPromptImpl = async (
     messages: [...history, { role: 'user', content: userPrompt }],
     tools: createAgentTools(ctx, args.userId, searchProvider),
     stopWhen: stepCountIs(8),
-    onStepFinish: createStepHandler(ctx, args),
+    onStepFinish: createStepHandler(ctx, args, searchProvider),
   })
 
   const assistantMessage =

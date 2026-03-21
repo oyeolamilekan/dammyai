@@ -198,6 +198,7 @@ const processResearchJobImpl = async (
       id,
       result: report,
       summary,
+      searchProvider,
     })
 
     // Send Telegram notification with PDF generated from the raw report
@@ -349,12 +350,14 @@ export const markResearchCompleted = internalMutation({
     id: v.id('backgroundResearch'),
     result: v.string(),
     summary: v.optional(v.string()),
+    searchProvider: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch('backgroundResearch', args.id, {
       status: 'completed',
       result: args.result,
       summary: args.summary,
+      searchProvider: args.searchProvider,
       completedAt: now(),
       error: undefined,
     })

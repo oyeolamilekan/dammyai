@@ -318,6 +318,11 @@ function MemoriesPage() {
                           : item.modelId}
                       </p>
                     )}
+                    {isTool && item.searchProvider && (
+                      <p className="text-[10px] text-muted-foreground mt-1.5">
+                        {item.searchProvider}
+                      </p>
+                    )}
                   </div>
                 )
               })

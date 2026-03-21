@@ -60,7 +60,7 @@ export function createTavilySearchTool() {
 
       const lines: Array<string> = []
       if (data.answer) {
-        lines.push(`💡 ${data.answer}\n`)
+        lines.push(`💡 ${data.answer}`)
       }
       for (const r of data.results) {
         const date = r.published_date ? ` (${r.published_date})` : ''

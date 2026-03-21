@@ -163,7 +163,11 @@ export const createAgentTools = (
     description:
       'Create a time-triggered task or reminder. USE when the user says "remind me to…", "at 3pm do…", "every morning send me…", or any request that should execute at a specific future time. For one_off: runAtIso is required. For recurring: intervalMinutes is required, runAtIso is optional (defaults to now + interval). NOT for Todoist tasks (use updateTodo) or calendar events (use scheduleCall).',
     inputSchema: z.object({
-      prompt: z.string().min(1).describe('What the task should do when it fires, e.g. "Send a weather update to Telegram" or "Remind to take medication"'),
+      prompt: z.string().min(1).describe(
+        'The exact command to execute when this task fires. Write as a direct imperative — e.g. "Search BTC, SOL, ETH prices and top 3 crypto headlines, then send the result via Telegram" or "Check my inbox for unread emails and summarise them". ' +
+        'IMPORTANT: Do NOT include scheduling language ("daily", "each morning", "every day", "at 07:00", "remind me") — those are already captured by runAtIso/intervalMinutes. ' +
+        'The prompt is replayed verbatim at execution time, so it must read as an immediate "do this right now" instruction.',
+      ),
       type: z.enum(['one_off', 'recurring']).describe('"one_off" for a single future execution, "recurring" for repeated execution at a fixed interval'),
       runAtIso: z
         .string()

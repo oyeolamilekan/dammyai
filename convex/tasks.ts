@@ -323,7 +323,7 @@ const executeTaskImpl = async (ctx: ActionCtx, id: Id<'scheduledTasks'>) => {
   try {
     result = await executeAIPromptImpl(ctx, {
       userId,
-      prompt,
+      prompt: `Execute this scheduled task right now: ${prompt}`,
       systemPrompt: TASK_SYSTEM_PROMPT,
       onToolCall: async (step) => {
         await ctx.runMutation(internal.taskLogs.appendLogStep, {

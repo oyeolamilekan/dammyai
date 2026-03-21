@@ -29,6 +29,7 @@ export const listConversations = query({
       content: row.content,
       toolName: row.toolName ?? null,
       modelId: row.modelId ?? null,
+      searchProvider: row.searchProvider ?? null,
       createdAt: new Date(row.createdAt).toISOString(),
     }))
 
