@@ -44,11 +44,11 @@ Defines the HTML shell, metadata, theme bootstrapping, and global UI wrappers li
 - `routes/dashboard/index.tsx`: quick summary view
 - `routes/dashboard/tasks.tsx`: create, list, pause, delete, and inspect scheduled tasks
 - `routes/dashboard/research.tsx`: browse research jobs and open generated reports
-- `routes/dashboard/memories.tsx`: manage core memories, archival memories, and conversations
+- `routes/dashboard/memories.tsx`: manage core memories, archival memories, and conversations; assistant messages display the model name used to generate them
 - `routes/dashboard/integrations.tsx`: connect OAuth providers and Telegram
 - `routes/dashboard/souls.tsx`: edit the assistant's system prompt and preferences
 - `routes/dashboard/account.tsx`: account details
-- `routes/dashboard/preferences.tsx`: user-level preferences (model selection, search provider, research model)
+- `routes/dashboard/preferences.tsx`: user-level preferences (model selection, search provider, research model, timezone, research depth, and research breadth)
 
 ## Auth and session helpers
 
@@ -80,6 +80,8 @@ Used by protected routes to redirect unauthenticated users before rendering dash
 | Memories       | `memories`                                  |
 | Integrations   | `integrations`                              |
 | Souls          | `soul`                                      |
+| Preferences    | `soul`                                      |
+| Account        | `auth`                                      |
 
 ## Generated files
 

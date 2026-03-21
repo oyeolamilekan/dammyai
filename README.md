@@ -74,7 +74,7 @@ For backend module details, see [`convex/README.md`](./convex/README.md).
 
 1. A user message arrives from the app or Telegram.
 2. `convex/aiActions.ts` loads soul settings, conversation history (last 20 messages), and core memories.
-3. The system prompt is assembled from the soul config, centralized prompts in `convex/ai/prompts.ts`, and core memories.
+3. The system prompt is assembled from the soul config (including timezone when set), centralized prompts in `convex/ai/prompts.ts`, and core memories. A configured timezone injects explicit timezone instructions into the prompt; when absent, UTC is used with a one-time suggestion to configure timezone in Settings.
 4. The AI model is called with tool access from `convex/ai/tools.ts`.
 5. Tool implementations in `convex/tools/` call external providers.
 6. If the query requires deep research, the model calls `startBackgroundResearch` (once per invocation, enforced by a dedup guard).
@@ -83,8 +83,8 @@ For backend module details, see [`convex/README.md`](./convex/README.md).
 ### Scheduled task flow
 
 1. A task is created in `scheduledTasks`.
-2. Cron jobs in `convex/crons.ts` check for due tasks every minute.
-3. `convex/tasks.ts` claims the task immediately (disables one-off tasks or advances the next run time for recurring tasks) to prevent duplicate execution by the next cron tick.
+2. Cron jobs in `convex/crons.ts` check for due tasks every minute. Tasks are executed exclusively through this cron — there is no separate one-off scheduler trigger.
+3. `convex/tasks.ts` atomically claims the task via `claimTaskForExecution` (disables one-off tasks or advances the next run time for recurring tasks) to prevent duplicate execution by overlapping cron ticks.
 4. The prompt is executed through the AI engine.
 5. Execution logs are stored in `taskExecutionLogs`.
 6. Results can be delivered to Telegram if linked.
@@ -92,9 +92,17 @@ For backend module details, see [`convex/README.md`](./convex/README.md).
 ### Research flow
 
 1. A research job is created in `backgroundResearch`.
-2. Convex cron picks up pending jobs.
-3. `convex/research.ts` runs deep research and records progress checkpoints.
+2. Convex cron picks up pending jobs every minute.
+3. `convex/research.ts` atomically claims the job via `claimResearchJob`, then runs deep research using the user's configured `researchDepth` (1–4) and `researchBreadth` (2–6) from their soul settings, and records progress checkpoints.
 4. Reports are stored in Convex and optionally delivered to Telegram as a PDF.
+
+### Cron jobs
+
+Three recurring cron jobs are defined in `convex/crons.ts`:
+
+- **Every minute**: process due scheduled tasks
+- **Every minute**: process pending research jobs
+- **Every 30 minutes**: refresh expiring Google OAuth tokens (`convex/googleTokenRefresh.ts`)
 
 ## Directory map
 
@@ -197,8 +205,8 @@ Defined in `convex/schema.ts`:
 - `integrations`
 - `coreMemories`
 - `archivalMemories`
-- `messages`
-- `souls`
+- `messages`: conversation history; records `role`, `content`, and optional `modelId` (the model that generated each assistant message)
+- `souls`: per-user AI configuration; includes `systemPrompt`, model/search preferences, `timezone`, `researchDepth`, and `researchBreadth`
 - `scheduledTasks`
 - `taskExecutionLogs`
 - `backgroundResearch`

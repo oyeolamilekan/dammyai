@@ -11,14 +11,15 @@ This directory contains the backend for DammyAI: database schema, public APIs fo
 | AI runtime | Assistant action entrypoints plus extracted orchestration, prompt, memory, and tool wiring modules | `aiActions.ts`, `ai/`, `aiStore.ts`, `aiTools.ts` |
 | Tasks | Scheduled task CRUD, execution, and cron-driven processing | `tasks.ts`, `taskLogs.ts`, `crons.ts` |
 | Research | Background research jobs and report delivery | `research.ts`, `lib/deepResearch.ts`, `lib/pdfApi.ts`, `lib/pdfGenerator.ts` |
+| Google token refresh | Proactive background renewal of expiring Google OAuth tokens | `googleTokenRefresh.ts` |
 | Memories | User-visible memory and conversation APIs | `memories.ts` |
-| Soul settings | Per-user system prompt and model/search preferences | `soul.ts` |
+| Soul settings | Per-user system prompt, model/search preferences, timezone, and research configuration | `soul.ts` |
 | Integrations | Provider credential storage and Telegram linking | `integrations.ts`, `integrationStore.ts`, `telegramStore.ts` |
 | Telegram transport | Bot webhook, outbound messages, document delivery | `telegram.ts`, `lib/telegramFormat.ts` |
 | HTTP routes | Route registration for auth, Telegram, and OAuth callbacks | `http.ts` |
 | OAuth handlers | Provider-specific auth and callback flows | `oauth/gmail.ts`, `oauth/googleCalendar.ts`, `oauth/todoist.ts`, `oauth/notion.ts` |
 | External tools | AI-callable wrappers around provider APIs | `tools/` |
-| Shared backend utilities | Session helpers, env helpers, provider helpers | `lib/session.ts`, `lib/env.ts`, `lib/google.ts` |
+| Shared backend utilities | Session helpers, env helpers, provider helpers, pagination, time, and task validation utilities | `lib/session.ts`, `lib/env.ts`, `lib/google.ts`, `lib/pagination.ts`, `lib/time.ts`, `lib/taskValidation.ts` |
 
 ## Runtime boundaries
 
@@ -89,10 +90,10 @@ The app schema merges Better Auth tables from `betterAuth/schema.ts` with DammyA
   - Fields: `userId`, `content`, optional `tags`, timestamps.
   - Common indexes: `userId`, `userId_updatedAt`.
 - `messages`: conversation history for the assistant.
-  - Fields: `userId`, `role` (`user`, `assistant`, `tool`), `content`, optional tool metadata, `createdAt`.
+  - Fields: `userId`, `role` (`user`, `assistant`, `tool`), `content`, optional tool metadata, optional `modelId` (the model that generated each assistant message), `createdAt`.
   - Common index: `userId_createdAt`.
 - `souls`: per-user AI configuration and preferences.
-  - Fields: `systemPrompt`, optional `modelPreference`, optional `searchProvider`, optional `researchModelPreference`, timestamps.
+  - Fields: `systemPrompt`, optional `modelPreference`, optional `searchProvider`, optional `researchModelPreference`, optional `timezone`, optional `researchDepth`, optional `researchBreadth`, timestamps.
   - Common index: `userId`.
 - `scheduledTasks`: one-off and recurring automation tasks.
   - Fields: `prompt`, `type`, optional scheduling timestamps, optional last-run/result metadata, `enabled`, timestamps.
@@ -146,8 +147,8 @@ Current structure:
 - `engine.ts`: main execution flow for user-scoped AI prompts and direct replies
 - `tools.ts`: AI SDK tool definitions, tool-output formatting, and a per-invocation dedup guard for background research
 - `memory.ts`: auto-extraction and persistence of memories from conversations
-- `config.ts`: model normalization, prompt construction, and re-exports from `prompts.ts`
-- `prompts.ts`: centralized prompt definitions for all agents (main assistant, scheduled tasks, deep research, memory extraction)
+- `config.ts`: model normalization, timezone-aware prompt construction (`buildSystemPrompt` injects explicit timezone instructions when a timezone is set, or a UTC fallback with a one-time timezone suggestion), and re-exports from `prompts.ts`
+- `prompts.ts`: centralized prompt definitions for all agents (main assistant, scheduled tasks, deep research, memory extraction); `MEMORY_INSTRUCTIONS` includes RULE 5 for timezone handling; the deep research prompt enforces a 1-sentence/25-word summary constraint
 - `types.ts`: shared runtime types used across the AI modules
 
 ### `aiStore.ts`
@@ -181,8 +182,9 @@ Responsibilities:
 
 - dashboard CRUD for scheduled tasks
 - internal due-task lookup
-- claim-before-execute pattern to prevent duplicate execution by overlapping cron ticks
-- execution via the AI runtime
+- atomic `claimTaskForExecution` internalMutation to prevent duplicate execution by overlapping cron ticks
+- cron-only execution model (no separate `scheduler.runAt` trigger for one-off tasks)
+- execution via the AI runtime using shared helpers from `lib/taskValidation.ts`
 - result logging
 - optional Telegram delivery
 
@@ -199,7 +201,8 @@ Background research orchestration.
 Responsibilities:
 
 - create user research jobs
-- process jobs via internal actions
+- atomically claim jobs via `claimResearchJob` internalMutation before executing to prevent duplicate processing
+- run deep research using the user's configured `researchDepth` (1–4, clamped) and `researchBreadth` (2–6, clamped) from soul settings
 - record progress checkpoints
 - store generated reports
 - send summaries to Telegram and render PDFs through the standalone PDF API when available
@@ -215,6 +218,7 @@ Responsibilities:
 - delete provider links
 - generate Telegram linking URLs
 - expose internal upsert helpers for OAuth callbacks
+- `getIntegrationByProvider` helper eliminates repeated index query patterns across integration lookups
 
 ### `telegram.ts`
 
@@ -276,11 +280,14 @@ Important helpers:
 
 - `session.ts`: auth/session helpers for deriving the current user
 - `env.ts`: required/optional environment reads
-- `deepResearch.ts`: long-running research workflow logic
+- `deepResearch.ts`: long-running research workflow logic; `generateReport` enforces a 1-sentence/25-word summary constraint
 - `pdfApi.ts`: standalone HTML-to-PDF service client
 - `pdfGenerator.ts`: report PDF generation
 - `telegramFormat.ts`: Telegram-safe formatting
-- `google.ts`: shared Google provider helpers
+- `google.ts`: shared Google provider helpers; exports `refreshGoogleAccessToken`
+- `pagination.ts`: shared `normalizePage`, `normalizeLimit`, `paginate`, and `pageArgs` helpers used by tasks and memories
+- `time.ts`: shared `now()` helper and `MIN_TASK_INTERVAL_MS` constant
+- `taskValidation.ts`: shared `validateTaskArgs` and `computeFirstRunAt` used by task creation and AI tools
 
 ## Cron jobs
 
@@ -288,10 +295,9 @@ Defined in `crons.ts`.
 
 Current jobs:
 
-- process due scheduled tasks
-- process pending research jobs
-
-Both run every minute.
+- process due scheduled tasks — every minute
+- process pending research jobs — every minute
+- refresh expiring Google OAuth tokens (`googleTokenRefresh.ts`) — every 30 minutes
 
 ## Contributor guidance
 
