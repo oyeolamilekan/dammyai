@@ -13,6 +13,8 @@ import type * as ai_engine from "../ai/engine.js";
 import type * as ai_index from "../ai/index.js";
 import type * as ai_memory from "../ai/memory.js";
 import type * as ai_prompts from "../ai/prompts.js";
+import type * as ai_toolDefinitions_index from "../ai/toolDefinitions/index.js";
+import type * as ai_toolDefinitions_integrations from "../ai/toolDefinitions/integrations.js";
 import type * as ai_toolDefinitions_memory from "../ai/toolDefinitions/memory.js";
 import type * as ai_toolDefinitions_research from "../ai/toolDefinitions/research.js";
 import type * as ai_toolDefinitions_scheduledTasks from "../ai/toolDefinitions/scheduledTasks.js";
@@ -69,6 +71,8 @@ declare const fullApi: ApiFromModules<{
   "ai/index": typeof ai_index;
   "ai/memory": typeof ai_memory;
   "ai/prompts": typeof ai_prompts;
+  "ai/toolDefinitions/index": typeof ai_toolDefinitions_index;
+  "ai/toolDefinitions/integrations": typeof ai_toolDefinitions_integrations;
   "ai/toolDefinitions/memory": typeof ai_toolDefinitions_memory;
   "ai/toolDefinitions/research": typeof ai_toolDefinitions_research;
   "ai/toolDefinitions/scheduledTasks": typeof ai_toolDefinitions_scheduledTasks;

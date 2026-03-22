@@ -5,14 +5,49 @@ import { parseRunAtIso } from '../toolHelpers'
 import type { AILikeCtx } from '../types'
 
 /**
- * Purpose: Builds the scheduled-task tools used to create, inspect, update, and delete reminders and recurring tasks.
- * Function type: helper factory
+ * Purpose: Formats the human-readable repeat interval summary returned after creating a recurring scheduled task.
+ * Function type: helper
+ * Args:
+ * - intervalMinutes: number | undefined
+ */
+function formatRepeatInfo(intervalMinutes?: number) {
+  if (!intervalMinutes) {
+    return undefined
+  }
+  if (intervalMinutes >= 1440) {
+    return `every ${Math.round(intervalMinutes / 1440)} day(s)`
+  }
+  if (intervalMinutes >= 60) {
+    return `every ${Math.round(intervalMinutes / 60)} hour(s)`
+  }
+  return `every ${intervalMinutes} minute(s)`
+}
+
+/**
+ * Purpose: Formats the human-readable scheduled date shown after creating a scheduled task.
+ * Function type: helper
+ * Args:
+ * - runAtIso: string | undefined
+ */
+function formatScheduledFor(runAtIso?: string) {
+  if (!runAtIso) {
+    return undefined
+  }
+  return new Date(runAtIso).toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
+/**
+ * Purpose: Creates the tool that schedules a one-off or recurring task.
+ * Function type: tool factory
  * Args:
  * - ctx: AILikeCtx
  * - userId: string
  */
-export const createScheduledTaskTools = (ctx: AILikeCtx, userId: string) => ({
-  createScheduledTask: tool({
+export function createScheduledTaskTool(ctx: AILikeCtx, userId: string) {
+  return tool({
     description:
       'Create a time-triggered task or reminder. USE when the user says "remind me to…", "at 3pm do…", "every morning send me…", or any request that should execute at a specific future time. For one_off: runAtIso is required. For recurring: intervalMinutes is required, runAtIso is optional (defaults to now + interval). NOT for Todoist tasks (use updateTodo) or calendar events (use scheduleCall).',
     inputSchema: z.object({
@@ -51,19 +86,8 @@ export const createScheduledTaskTools = (ctx: AILikeCtx, userId: string) => ({
         runAt,
         intervalMs,
       })
-      const scheduledFor = runAtIso
-        ? new Date(runAtIso).toLocaleString('en-US', {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-          })
-        : undefined
-      const repeatInfo = intervalMinutes
-        ? intervalMinutes >= 1440
-          ? `every ${Math.round(intervalMinutes / 1440)} day(s)`
-          : intervalMinutes >= 60
-            ? `every ${Math.round(intervalMinutes / 60)} hour(s)`
-            : `every ${intervalMinutes} minute(s)`
-        : undefined
+      const scheduledFor = formatScheduledFor(runAtIso)
+      const repeatInfo = formatRepeatInfo(intervalMinutes)
       return JSON.stringify({
         status: 'created',
         taskType: type,
@@ -72,8 +96,18 @@ export const createScheduledTaskTools = (ctx: AILikeCtx, userId: string) => ({
         ...(repeatInfo && { repeats: repeatInfo }),
       })
     },
-  }),
-  listScheduledTasks: tool({
+  })
+}
+
+/**
+ * Purpose: Creates the tool that lists the user's scheduled tasks.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
+export function createListScheduledTasksTool(ctx: AILikeCtx, userId: string) {
+  return tool({
     description:
       'List the user\'s scheduled tasks and reminders created via createScheduledTask. USE when the user asks "show my reminders", "what tasks are scheduled?", or "list my scheduled stuff". NOT for Todoist tasks (use checkTodos) or calendar events (use checkSchedule).',
     inputSchema: z.object({
@@ -110,13 +144,29 @@ export const createScheduledTaskTools = (ctx: AILikeCtx, userId: string) => ({
         })),
       })
     },
-  }),
-  updateScheduledTask: tool({
+  })
+}
+
+/**
+ * Purpose: Creates the tool that updates a scheduled task's description or enabled state.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
+export function createUpdateScheduledTaskTool(
+  ctx: AILikeCtx,
+  userId: string,
+) {
+  return tool({
     description:
       "Update a scheduled task's description or enabled/disabled state. Get the task ID from listScheduledTasks first. USE to pause, resume, or edit an existing scheduled task.",
     inputSchema: z.object({
       id: z.string().min(1).describe('Task ID from listScheduledTasks results'),
-      prompt: z.string().optional().describe('New task description. Omit to keep unchanged.'),
+      prompt: z
+        .string()
+        .optional()
+        .describe('New task description. Omit to keep unchanged.'),
       enabled: z
         .boolean()
         .optional()
@@ -134,8 +184,21 @@ export const createScheduledTaskTools = (ctx: AILikeCtx, userId: string) => ({
       if (enabled !== undefined) changes.active = enabled
       return JSON.stringify(changes)
     },
-  }),
-  deleteScheduledTask: tool({
+  })
+}
+
+/**
+ * Purpose: Creates the tool that deletes a scheduled task by ID.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
+export function createDeleteScheduledTaskTool(
+  ctx: AILikeCtx,
+  userId: string,
+) {
+  return tool({
     description:
       'Permanently delete a scheduled task. Get the task ID from listScheduledTasks first. USE when the user wants to remove a reminder or recurring task entirely.',
     inputSchema: z.object({
@@ -148,5 +211,21 @@ export const createScheduledTaskTools = (ctx: AILikeCtx, userId: string) => ({
       }))
         ? JSON.stringify({ status: 'deleted' })
         : JSON.stringify({ status: 'not_found' }),
-  }),
-})
+  })
+}
+
+/**
+ * Purpose: Builds the grouped scheduled-task tool map consumed by the top-level AI tool composer.
+ * Function type: helper factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
+export function createScheduledTaskTools(ctx: AILikeCtx, userId: string) {
+  return {
+    createScheduledTask: createScheduledTaskTool(ctx, userId),
+    listScheduledTasks: createListScheduledTasksTool(ctx, userId),
+    updateScheduledTask: createUpdateScheduledTaskTool(ctx, userId),
+    deleteScheduledTask: createDeleteScheduledTaskTool(ctx, userId),
+  }
+}

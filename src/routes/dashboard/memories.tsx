@@ -305,11 +305,11 @@ function MemoriesPage() {
                       </span>
                     </div>
                     {isAssistant ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+                      <div className="prose prose-sm dark:prose-invert max-w-none wrap-break-words">
                         <Markdown>{item.content}</Markdown>
                       </div>
                     ) : (
-                      <p className="text-sm break-words">{item.content}</p>
+                      <p className="text-sm wrap-break-words">{item.content}</p>
                     )}
                     {isAssistant && item.modelId && (
                       <p className="text-[10px] text-muted-foreground mt-1.5">

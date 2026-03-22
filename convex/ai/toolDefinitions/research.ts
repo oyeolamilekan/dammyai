@@ -6,19 +6,19 @@ import type { AILikeCtx } from '../types'
 type ClaimResearchStart = () => boolean
 
 /**
- * Purpose: Builds the background-research tools used by the AI agent while preserving the one-per-invocation research guard.
- * Function type: helper factory
+ * Purpose: Creates the tool that starts a background research job while respecting the per-invocation research guard.
+ * Function type: tool factory
  * Args:
  * - ctx: AILikeCtx
  * - userId: string
  * - claimResearchStart: ClaimResearchStart
  */
-export const createResearchTools = (
+export function createStartBackgroundResearchTool(
   ctx: AILikeCtx,
   userId: string,
   claimResearchStart: ClaimResearchStart,
-) => ({
-  startBackgroundResearch: tool({
+) {
+  return tool({
     description:
       'Start a deep background research job that runs asynchronously and delivers a comprehensive report. USE for complex questions needing multi-source analysis: market research, technical deep-dives, competitive analysis, "tell me everything about X", or any topic requiring 30+ minutes of human research. Results are delivered when ready (usually via Telegram). NOT for quick factual lookups (use webSearch instead).',
     inputSchema: z.object({
@@ -40,8 +40,21 @@ export const createResearchTools = (
       })
       return `Research kicked off — I'll dig into "${prompt}" and deliver the results when ready.`
     },
-  }),
-  cancelBackgroundResearch: tool({
+  })
+}
+
+/**
+ * Purpose: Creates the tool that cancels an active background research job.
+ * Function type: tool factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ */
+export function createCancelBackgroundResearchTool(
+  ctx: AILikeCtx,
+  userId: string,
+) {
+  return tool({
     description:
       'Cancel an active background research job. If no ID is provided, cancels the most recent active job.',
     inputSchema: z.object({
@@ -57,5 +70,28 @@ export const createResearchTools = (
       }))
         ? 'Done — research canceled.'
         : 'No active research to cancel — it may have already finished.',
-  }),
-})
+  })
+}
+
+/**
+ * Purpose: Builds the grouped research tool map consumed by the top-level AI tool composer.
+ * Function type: helper factory
+ * Args:
+ * - ctx: AILikeCtx
+ * - userId: string
+ * - claimResearchStart: ClaimResearchStart
+ */
+export function createResearchTools(
+  ctx: AILikeCtx,
+  userId: string,
+  claimResearchStart: ClaimResearchStart,
+) {
+  return {
+    startBackgroundResearch: createStartBackgroundResearchTool(
+      ctx,
+      userId,
+      claimResearchStart,
+    ),
+    cancelBackgroundResearch: createCancelBackgroundResearchTool(ctx, userId),
+  }
+}
