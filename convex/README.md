@@ -8,9 +8,9 @@ This directory contains the backend for DammyAI: database schema, public APIs fo
 | --- | --- | --- |
 | Schema | Defines application tables and indexes | `schema.ts` |
 | Auth | Convex-facing auth queries and Better Auth component wiring | `auth.ts`, `auth.config.ts`, `betterAuth/` |
-| AI runtime | Assistant action entrypoints plus extracted orchestration, prompt, memory, and tool wiring modules | `aiActions.ts`, `ai/`, `aiStore.ts`, `aiTools.ts` |
+| AI runtime | Assistant action entrypoints plus extracted orchestration, prompts, grouped tool factories, and persistence helpers | `aiActions.ts`, `ai/`, `aiStore.ts`, `aiTools.ts` |
 | Tasks | Scheduled task CRUD, execution, and cron-driven processing | `tasks.ts`, `taskLogs.ts`, `crons.ts` |
-| Research | Background research jobs and report delivery | `research.ts`, `lib/deepResearch.ts`, `lib/pdfApi.ts`, `lib/pdfGenerator.ts` |
+| Research | Background research jobs, provider-aware deep research, and report delivery | `research.ts`, `lib/deepResearch.ts`, `lib/pdfApi.ts`, `lib/pdfGenerator.ts` |
 | Google token refresh | Proactive background renewal of expiring Google OAuth tokens | `googleTokenRefresh.ts` |
 | Memories | User-visible memory and conversation APIs | `memories.ts` |
 | Soul settings | Per-user system prompt, model/search preferences, timezone, and research configuration | `soul.ts` |
@@ -90,7 +90,7 @@ The app schema merges Better Auth tables from `betterAuth/schema.ts` with DammyA
   - Fields: `userId`, `content`, optional `tags`, timestamps.
   - Common indexes: `userId`, `userId_updatedAt`.
 - `messages`: conversation history for the assistant.
-  - Fields: `userId`, `role` (`user`, `assistant`, `tool`), `content`, optional tool metadata, optional `modelId` (the model that generated each assistant message), `createdAt`.
+  - Fields: `userId`, `role` (`user`, `assistant`, `tool`), `content`, optional tool metadata, optional `modelId` (the model that generated each assistant message), optional `searchProvider` for persisted web-search tool calls, `createdAt`.
   - Common index: `userId_createdAt`.
 - `souls`: per-user AI configuration and preferences.
   - Fields: `systemPrompt`, optional `modelPreference`, optional `searchProvider`, optional `researchModelPreference`, optional `timezone`, optional `researchDepth`, optional `researchBreadth`, timestamps.
@@ -102,7 +102,7 @@ The app schema merges Better Auth tables from `betterAuth/schema.ts` with DammyA
   - Fields: `taskId`, `startedAt`, optional `completedAt`, `status`, optional `result` / `error`, and detailed `steps`.
   - Common indexes: `taskId`, `taskId_startedAt`.
 - `backgroundResearch`: long-running research job tracking.
-  - Fields: `prompt`, `status`, optional `result`, optional `summary`, optional `error`, optional `checkpoints`, `createdAt`, optional `completedAt`.
+  - Fields: `prompt`, `status`, optional `result`, optional `summary`, optional `error`, optional `checkpoints`, optional `searchProvider`, `createdAt`, optional `completedAt`.
   - Common indexes: `userId_createdAt`, `status_createdAt`, `userId_status_createdAt`.
 
 #### Index usage guidance
@@ -145,10 +145,12 @@ Extracted AI runtime helpers.
 Current structure:
 
 - `engine.ts`: main execution flow for user-scoped AI prompts and direct replies
-- `tools.ts`: AI SDK tool definitions, tool-output formatting, and a per-invocation dedup guard for background research
+- `tools.ts`: composition layer that assembles the runtime tool set for a user/session
+- `toolDefinitions/`: grouped named tool factories for memory, scheduled tasks, research, and provider integrations
+- `toolHelpers.ts`: shared tool helpers such as output formatting and `runAt` parsing
 - `memory.ts`: auto-extraction and persistence of memories from conversations
 - `config.ts`: model normalization, timezone-aware prompt construction (`buildSystemPrompt` injects explicit timezone instructions when a timezone is set, or a UTC fallback with a one-time timezone suggestion), and re-exports from `prompts.ts`
-- `prompts.ts`: centralized prompt definitions for all agents (main assistant, scheduled tasks, deep research, memory extraction); `MEMORY_INSTRUCTIONS` includes RULE 5 for timezone handling; the deep research prompt enforces a 1-sentence/25-word summary constraint
+- `prompts.ts`: centralized prompt definitions for all agents (main assistant, scheduled tasks, deep research, memory extraction); `MEMORY_INSTRUCTIONS` automatically routes broad/complex requests into background research, keeps single-fact lookups to one `webSearch`, and includes RULE 5 for timezone handling; `TASK_SYSTEM_PROMPT` treats fired tasks as execute-now commands and keeps scheduled-task replies short and natural
 - `types.ts`: shared runtime types used across the AI modules
 
 ### `aiStore.ts`
@@ -160,7 +162,7 @@ Responsibilities:
 - load soul settings
 - load conversation history
 - load core memories
-- persist messages
+- persist messages, including model/search-provider metadata used by the dashboard memories view
 - upsert auto-extracted core memories
 
 ### `aiTools.ts`
@@ -185,6 +187,7 @@ Responsibilities:
 - atomic `claimTaskForExecution` internalMutation to prevent duplicate execution by overlapping cron ticks
 - cron-only execution model (no separate `scheduler.runAt` trigger for one-off tasks)
 - execution via the AI runtime using shared helpers from `lib/taskValidation.ts`
+- wraps stored prompts as execute-now commands and runs them with `TASK_SYSTEM_PROMPT` so recurring tasks perform the work instead of rescheduling it
 - result logging
 - optional Telegram delivery
 
@@ -202,9 +205,9 @@ Responsibilities:
 
 - create user research jobs
 - atomically claim jobs via `claimResearchJob` internalMutation before executing to prevent duplicate processing
-- run deep research using the user's configured `researchDepth` (1–4, clamped) and `researchBreadth` (2–6, clamped) from soul settings
+- run deep research using the user's configured `researchDepth` (1–4, clamped), `researchBreadth` (2–6, clamped), research model preference, and search provider from soul settings
 - record progress checkpoints
-- store generated reports
+- store generated reports and the provider metadata used for the run
 - send summaries to Telegram and render PDFs through the standalone PDF API when available
 
 ### `integrations.ts`
@@ -280,9 +283,9 @@ Important helpers:
 
 - `session.ts`: auth/session helpers for deriving the current user
 - `env.ts`: required/optional environment reads
-- `deepResearch.ts`: long-running research workflow logic; `generateReport` enforces a 1-sentence/25-word summary constraint
-- `pdfApi.ts`: standalone HTML-to-PDF service client
-- `pdfGenerator.ts`: report PDF generation
+- `deepResearch.ts`: long-running research workflow logic; dispatches Exa/Tavily search based on the selected provider and `generateReport` enforces a 1-sentence/25-word summary constraint
+- `pdfApi.ts`: standalone HTML-to-PDF service client used for research delivery
+- `pdfGenerator.ts`: shared report-to-PDF generation helpers retained in the backend module set
 - `telegramFormat.ts`: Telegram-safe formatting
 - `google.ts`: shared Google provider helpers; exports `refreshGoogleAccessToken`
 - `pagination.ts`: shared `normalizePage`, `normalizeLimit`, `paginate`, and `pageArgs` helpers used by tasks and memories
@@ -303,5 +306,6 @@ Current jobs:
 
 - Prefer using existing helpers in `lib/` before adding new ones.
 - Keep external API calls in actions, HTTP handlers, or tool adapters rather than query functions.
+- Keep `ai/tools.ts` as the composition layer; add or move grouped tool definitions under `ai/toolDefinitions/` and shared tool helpers under `ai/toolHelpers.ts`.
 - Avoid editing generated files in `_generated/`.
 - When changing data shape, update `schema.ts` first and then adjust the public and internal modules that depend on it.

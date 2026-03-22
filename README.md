@@ -8,7 +8,7 @@ It combines:
 - Better Auth for sign-in and session handling
 - an AI agent powered by the Vercel AI SDK
 - background workflows for scheduled tasks and research
-- integrations with Telegram, Gmail, Google Calendar, Todoist, Notion, and web search providers
+- integrations with Telegram, Gmail, Google Calendar, Todoist, Notion, and provider-aware web search
 
 ## Tech stack
 
@@ -27,6 +27,7 @@ bun run build
 bun run lint
 bun run format
 bun run dev:pdf-api
+bun run deploy:pdf-api
 ```
 
 ## Architecture at a glance
@@ -51,6 +52,8 @@ The backend lives in `convex/` and is split by capability.
 - `convex/schema.ts` defines the application data model
 - `convex/http.ts` exposes auth, Telegram, and OAuth callback routes
 - `convex/aiActions.ts` is the main AI execution entrypoint
+- `convex/ai/tools.ts` assembles the runtime toolset from grouped factories in `convex/ai/toolDefinitions/`
+- `convex/ai/toolHelpers.ts` holds shared formatting and parsing helpers used across tool definitions
 
 For backend module details, see [`convex/README.md`](./convex/README.md).
 
@@ -75,26 +78,29 @@ For backend module details, see [`convex/README.md`](./convex/README.md).
 1. A user message arrives from the app or Telegram.
 2. `convex/aiActions.ts` loads soul settings, conversation history (last 20 messages), and core memories.
 3. The system prompt is assembled from the soul config (including timezone when set), centralized prompts in `convex/ai/prompts.ts`, and core memories. A configured timezone injects explicit timezone instructions into the prompt; when absent, UTC is used with a one-time suggestion to configure timezone in Settings.
-4. The AI model is called with tool access from `convex/ai/tools.ts`.
-5. Tool implementations in `convex/tools/` call external providers.
-6. If the query requires deep research, the model calls `startBackgroundResearch` (once per invocation, enforced by a dedup guard).
-7. Messages and auto-extracted memories are persisted back into Convex.
+4. `MEMORY_INSTRUCTIONS` in `convex/ai/prompts.ts` automatically routes broad or complex requests into `startBackgroundResearch`, while single-fact lookups use a single `webSearch` call.
+5. The AI model is called with tool access from `convex/ai/tools.ts`, which composes grouped tool factories from `convex/ai/toolDefinitions/`.
+6. Search tools use the user's configured search provider from soul settings (`exa` or `tavily`).
+7. If the query requires research, the model calls `startBackgroundResearch` once per invocation, enforced by a dedup guard in `createAgentTools`.
+8. Messages, web-search provider metadata, and auto-extracted memories are persisted back into Convex.
 
 ### Scheduled task flow
 
 1. A task is created in `scheduledTasks`.
 2. Cron jobs in `convex/crons.ts` check for due tasks every minute. Tasks are executed exclusively through this cron — there is no separate one-off scheduler trigger.
 3. `convex/tasks.ts` atomically claims the task via `claimTaskForExecution` (disables one-off tasks or advances the next run time for recurring tasks) to prevent duplicate execution by overlapping cron ticks.
-4. The prompt is executed through the AI engine.
-5. Execution logs are stored in `taskExecutionLogs`.
-6. Results can be delivered to Telegram if linked.
+4. The stored prompt is wrapped as an execute-now command and run through the AI engine with `TASK_SYSTEM_PROMPT`, so scheduled runs execute the task instead of trying to reschedule or reconfigure it.
+5. Task responses are intentionally short and conversational, and avoid exposing raw IDs, function names, timestamps, or backend metadata.
+6. Execution logs are stored in `taskExecutionLogs`.
+7. Results can be delivered to Telegram if linked.
 
 ### Research flow
 
 1. A research job is created in `backgroundResearch`.
 2. Convex cron picks up pending jobs every minute.
-3. `convex/research.ts` atomically claims the job via `claimResearchJob`, then runs deep research using the user's configured `researchDepth` (1–4) and `researchBreadth` (2–6) from their soul settings, and records progress checkpoints.
-4. Reports are stored in Convex and optionally delivered to Telegram as a PDF.
+3. `convex/research.ts` atomically claims the job via `claimResearchJob`, then runs deep research using the user's configured `researchDepth` (1–4), `researchBreadth` (2–6), model preference, and search provider (`exa` or `tavily`) from soul settings.
+4. `convex/lib/deepResearch.ts` dispatches searches through the selected provider, records progress checkpoints, and generates the final HTML report.
+5. Reports are stored in Convex with research metadata (including the search provider used) and can optionally be delivered to Telegram as a PDF.
 
 ### Cron jobs
 
@@ -205,11 +211,11 @@ Defined in `convex/schema.ts`:
 - `integrations`
 - `coreMemories`
 - `archivalMemories`
-- `messages`: conversation history; records `role`, `content`, and optional `modelId` (the model that generated each assistant message)
+- `messages`: conversation history; records `role`, `content`, optional `modelId`, and optional `searchProvider` for persisted web-search tool calls
 - `souls`: per-user AI configuration; includes `systemPrompt`, model/search preferences, `timezone`, `researchDepth`, and `researchBreadth`
 - `scheduledTasks`
 - `taskExecutionLogs`
-- `backgroundResearch`
+- `backgroundResearch`: research jobs, progress, report output, and the search provider used for the run
 - `telegramProcessedUpdates`
 
 ## Environment notes
@@ -228,4 +234,6 @@ The app depends on Convex deployment configuration and multiple provider credent
 
 - Prefer reading `convex/schema.ts` first to understand the data model.
 - Use `src/README.md` and `convex/README.md` to find the right module before editing.
+- For AI tool changes, keep `convex/ai/tools.ts` as the composition layer and put grouped tool factories in `convex/ai/toolDefinitions/`.
+- Dashboard route files should keep page-level orchestration in `src/routes/dashboard/*`, while extracted components in `src/components/dashboard/*` stay focused on rendering and small local UI concerns.
 - Avoid editing generated files such as `src/routeTree.gen.ts` and `convex/_generated/*` directly.
