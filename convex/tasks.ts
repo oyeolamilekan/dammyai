@@ -11,14 +11,56 @@ import { executeAIPromptImpl } from './ai/engine'
 import { formatToolOutput } from './ai/toolHelpers'
 import { now } from './lib/time'
 import { normalizeLimit, normalizePage, paginate } from './lib/pagination'
-import { computeFirstRunAt, validateTaskArgs } from './lib/taskValidation'
+import {
+  computeFirstRunAt,
+  computeNextRunAt,
+  normalizeTaskWeekdays,
+  validateTaskArgs,
+} from './lib/taskValidation'
 import { getUserId, requireUserId } from './lib/session'
 import { sendTelegramMessage } from './telegram'
 import { TASK_SYSTEM_PROMPT } from './ai/prompts'
 import type { Id } from './_generated/dataModel'
-import type { ActionCtx } from './_generated/server'
+import type { ActionCtx, MutationCtx } from './_generated/server'
 
 const taskTypeValidator = v.union(v.literal('one_off'), v.literal('recurring'))
+const taskWeekdayValidator = v.union(
+  v.literal('sunday'),
+  v.literal('monday'),
+  v.literal('tuesday'),
+  v.literal('wednesday'),
+  v.literal('thursday'),
+  v.literal('friday'),
+  v.literal('saturday'),
+)
+
+async function resolveTaskScheduleTimezone(
+  ctx: MutationCtx,
+  userId: string,
+  explicitTimezone?: string,
+) {
+  if (explicitTimezone?.trim()) {
+    return explicitTimezone.trim()
+  }
+
+  const soul = await ctx.db
+    .query('souls')
+    .withIndex('userId', (q) => q.eq('userId', userId))
+    .unique()
+
+  return soul?.timezone ?? 'UTC'
+}
+
+function getRecurringScheduleKind(task: {
+  type: 'one_off' | 'recurring'
+  intervalMs?: number
+  weekdays?: Array<string>
+}) {
+  if (task.type !== 'recurring') {
+    return null
+  }
+  return task.weekdays?.length ? 'weekday' : task.intervalMs ? 'interval' : null
+}
 
 /**
  * Purpose: Lists the signed-in user's scheduled tasks with simple pagination metadata.
@@ -50,7 +92,11 @@ export const listTasks = query({
       id: row._id,
       prompt: row.prompt,
       type: row.type,
+      scheduleKind: getRecurringScheduleKind(row),
       intervalMs: row.intervalMs ?? null,
+      weekdays: row.weekdays ?? [],
+      timeOfDay: row.timeOfDay ?? null,
+      scheduleTimezone: row.scheduleTimezone ?? null,
       runAt: row.runAt ? new Date(row.runAt).toISOString() : null,
       nextRunAt: row.nextRunAt ? new Date(row.nextRunAt).toISOString() : null,
       lastRunAt: row.lastRunAt ? new Date(row.lastRunAt).toISOString() : null,
@@ -71,6 +117,9 @@ export const listTasks = query({
  * - prompt: v.string()
  * - type: taskTypeValidator
  * - intervalMs: v.optional(v.number())
+ * - weekdays: v.optional(v.array(taskWeekdayValidator))
+ * - timeOfDay: v.optional(v.string())
+ * - scheduleTimezone: v.optional(v.string())
  * - runAt: v.optional(v.number())
  */
 export const createTask = mutation({
@@ -78,6 +127,9 @@ export const createTask = mutation({
     prompt: v.string(),
     type: taskTypeValidator,
     intervalMs: v.optional(v.number()),
+    weekdays: v.optional(v.array(taskWeekdayValidator)),
+    timeOfDay: v.optional(v.string()),
+    scheduleTimezone: v.optional(v.string()),
     runAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -87,16 +139,41 @@ export const createTask = mutation({
       throw new Error('Prompt is required')
     }
 
-    validateTaskArgs(args)
-    const firstRunAt = computeFirstRunAt(args)
+    const scheduleTimezone =
+      args.type === 'recurring' && args.weekdays?.length
+        ? await resolveTaskScheduleTimezone(ctx, userId, args.scheduleTimezone)
+        : args.scheduleTimezone
+    const taskArgs = {
+      ...args,
+      weekdays: normalizeTaskWeekdays(args.weekdays),
+      scheduleTimezone,
+    }
+
+    validateTaskArgs(taskArgs)
+    const firstRunAt = computeFirstRunAt(taskArgs)
     const timestamp = now()
 
     const taskId = await ctx.db.insert('scheduledTasks', {
       userId,
       prompt,
-      type: args.type,
-      intervalMs: args.type === 'recurring' ? args.intervalMs : undefined,
-      runAt: args.runAt,
+      type: taskArgs.type,
+      intervalMs:
+        taskArgs.type === 'recurring' && taskArgs.weekdays.length === 0
+          ? taskArgs.intervalMs
+          : undefined,
+      weekdays:
+        taskArgs.type === 'recurring' && taskArgs.weekdays.length > 0
+          ? taskArgs.weekdays
+          : undefined,
+      timeOfDay:
+        taskArgs.type === 'recurring' && taskArgs.weekdays.length > 0
+          ? taskArgs.timeOfDay
+          : undefined,
+      scheduleTimezone:
+        taskArgs.type === 'recurring' && taskArgs.weekdays.length > 0
+          ? taskArgs.scheduleTimezone
+          : undefined,
+      runAt: taskArgs.runAt,
       nextRunAt: firstRunAt,
       enabled: true,
       createdAt: timestamp,
@@ -230,11 +307,8 @@ export const claimTaskForExecution = internalMutation({
     }
 
     const ranAt = args.nowMs
-    const nextRunAt =
-      task.type === 'recurring' && task.intervalMs
-        ? ranAt + task.intervalMs
-        : undefined
-    const enabled = task.type === 'recurring'
+    const nextRunAt = computeNextRunAt(task, ranAt)
+    const enabled = task.type === 'recurring' && nextRunAt !== undefined
 
     await ctx.db.patch('scheduledTasks', args.id, {
       lastRunAt: ranAt,

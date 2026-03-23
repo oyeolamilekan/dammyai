@@ -2,10 +2,23 @@ import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { internalMutation, internalQuery } from './_generated/server'
 import { now } from './lib/time'
-import { computeFirstRunAt, validateTaskArgs } from './lib/taskValidation'
+import {
+  computeFirstRunAt,
+  normalizeTaskWeekdays,
+  validateTaskArgs,
+} from './lib/taskValidation'
 import type { MutationCtx } from './_generated/server'
 
 const taskTypeValidator = v.union(v.literal('one_off'), v.literal('recurring'))
+const taskWeekdayValidator = v.union(
+  v.literal('sunday'),
+  v.literal('monday'),
+  v.literal('tuesday'),
+  v.literal('wednesday'),
+  v.literal('thursday'),
+  v.literal('friday'),
+  v.literal('saturday'),
+)
 
 const getArchivalMemoryForUser = async (
   ctx: MutationCtx,
@@ -53,6 +66,34 @@ const getResearchJobForUser = async (
     return null
   }
   return existing
+}
+
+const getRecurringScheduleKind = (task: {
+  type: 'one_off' | 'recurring'
+  intervalMs?: number
+  weekdays?: Array<string>
+}) => {
+  if (task.type !== 'recurring') {
+    return null
+  }
+  return task.weekdays?.length ? 'weekday' : task.intervalMs ? 'interval' : null
+}
+
+const resolveTaskScheduleTimezone = async (
+  ctx: MutationCtx,
+  userId: string,
+  explicitTimezone?: string,
+) => {
+  if (explicitTimezone?.trim()) {
+    return explicitTimezone.trim()
+  }
+
+  const soul = await ctx.db
+    .query('souls')
+    .withIndex('userId', (q) => q.eq('userId', userId))
+    .unique()
+
+  return soul?.timezone ?? 'UTC'
 }
 
 /**
@@ -267,7 +308,12 @@ export const listScheduledTasks = internalQuery({
       id: String(row._id),
       prompt: row.prompt,
       type: row.type,
+      scheduleKind: getRecurringScheduleKind(row),
       enabled: row.enabled,
+      intervalMs: row.intervalMs ?? null,
+      weekdays: row.weekdays ?? [],
+      timeOfDay: row.timeOfDay ?? null,
+      scheduleTimezone: row.scheduleTimezone ?? null,
       runAt: row.runAt ?? null,
       nextRunAt: row.nextRunAt ?? null,
     }))
@@ -282,6 +328,9 @@ export const listScheduledTasks = internalQuery({
  * - prompt: v.string()
  * - type: taskTypeValidator
  * - intervalMs: v.optional(v.number())
+ * - weekdays: v.optional(v.array(taskWeekdayValidator))
+ * - timeOfDay: v.optional(v.string())
+ * - scheduleTimezone: v.optional(v.string())
  * - runAt: v.optional(v.number())
  */
 export const createScheduledTask = internalMutation({
@@ -290,6 +339,9 @@ export const createScheduledTask = internalMutation({
     prompt: v.string(),
     type: taskTypeValidator,
     intervalMs: v.optional(v.number()),
+    weekdays: v.optional(v.array(taskWeekdayValidator)),
+    timeOfDay: v.optional(v.string()),
+    scheduleTimezone: v.optional(v.string()),
     runAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -298,16 +350,41 @@ export const createScheduledTask = internalMutation({
       throw new Error('Prompt is required')
     }
 
-    validateTaskArgs(args)
-    const firstRunAt = computeFirstRunAt(args)
+    const scheduleTimezone =
+      args.type === 'recurring' && args.weekdays?.length
+        ? await resolveTaskScheduleTimezone(ctx, args.userId, args.scheduleTimezone)
+        : args.scheduleTimezone
+    const taskArgs = {
+      ...args,
+      weekdays: normalizeTaskWeekdays(args.weekdays),
+      scheduleTimezone,
+    }
+
+    validateTaskArgs(taskArgs)
+    const firstRunAt = computeFirstRunAt(taskArgs)
     const timestamp = now()
 
     const id = await ctx.db.insert('scheduledTasks', {
       userId: args.userId,
       prompt,
-      type: args.type,
-      intervalMs: args.type === 'recurring' ? args.intervalMs : undefined,
-      runAt: args.runAt,
+      type: taskArgs.type,
+      intervalMs:
+        taskArgs.type === 'recurring' && taskArgs.weekdays.length === 0
+          ? taskArgs.intervalMs
+          : undefined,
+      weekdays:
+        taskArgs.type === 'recurring' && taskArgs.weekdays.length > 0
+          ? taskArgs.weekdays
+          : undefined,
+      timeOfDay:
+        taskArgs.type === 'recurring' && taskArgs.weekdays.length > 0
+          ? taskArgs.timeOfDay
+          : undefined,
+      scheduleTimezone:
+        taskArgs.type === 'recurring' && taskArgs.weekdays.length > 0
+          ? taskArgs.scheduleTimezone
+          : undefined,
+      runAt: taskArgs.runAt,
       nextRunAt: firstRunAt,
       lastRunAt: undefined,
       lastResult: undefined,

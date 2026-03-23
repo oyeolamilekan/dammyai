@@ -86,7 +86,9 @@ For backend module details, see [`convex/README.md`](./convex/README.md).
 
 ### Scheduled task flow
 
-1. A task is created in `scheduledTasks`.
+1. A task is created in `scheduledTasks` as either:
+   - a one-off task with a single `runAt`
+   - a recurring task with either a fixed `intervalMs` or weekday-based recurrence (`weekdays` + `timeOfDay` + task timezone)
 2. Cron jobs in `convex/crons.ts` check for due tasks every minute. Tasks are executed exclusively through this cron — there is no separate one-off scheduler trigger.
 3. `convex/tasks.ts` atomically claims the task via `claimTaskForExecution` (disables one-off tasks or advances the next run time for recurring tasks) to prevent duplicate execution by overlapping cron ticks.
 4. The stored prompt is wrapped as an execute-now command and run through the AI engine with `TASK_SYSTEM_PROMPT`, so scheduled runs execute the task instead of trying to reschedule or reconfigure it.
@@ -213,7 +215,7 @@ Defined in `convex/schema.ts`:
 - `archivalMemories`
 - `messages`: conversation history; records `role`, `content`, optional `modelId`, and optional `searchProvider` for persisted web-search tool calls
 - `souls`: per-user AI configuration; includes `systemPrompt`, model/search preferences, `timezone`, `researchDepth`, and `researchBreadth`
-- `scheduledTasks`
+- `scheduledTasks`: one-off tasks, interval-based recurring tasks, and weekday-based recurring tasks (selected weekdays + time of day + task timezone)
 - `taskExecutionLogs`
 - `backgroundResearch`: research jobs, progress, report output, and the search provider used for the run
 - `telegramProcessedUpdates`

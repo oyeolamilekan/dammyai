@@ -87,6 +87,21 @@ export default defineSchema({
     prompt: v.string(),
     type: v.union(v.literal('one_off'), v.literal('recurring')),
     intervalMs: v.optional(v.number()),
+    weekdays: v.optional(
+      v.array(
+        v.union(
+          v.literal('sunday'),
+          v.literal('monday'),
+          v.literal('tuesday'),
+          v.literal('wednesday'),
+          v.literal('thursday'),
+          v.literal('friday'),
+          v.literal('saturday'),
+        ),
+      ),
+    ),
+    timeOfDay: v.optional(v.string()),
+    scheduleTimezone: v.optional(v.string()),
     runAt: v.optional(v.number()),
     nextRunAt: v.optional(v.number()),
     lastRunAt: v.optional(v.number()),

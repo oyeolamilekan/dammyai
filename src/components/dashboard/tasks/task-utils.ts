@@ -5,13 +5,40 @@ export const TASK_INTERVAL_UNITS = [
 ] as const
 
 export type ScheduledTaskType = 'one_off' | 'recurring'
+export type TaskScheduleKind = 'interval' | 'weekday'
+export type TaskWeekday =
+  | 'sunday'
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
 export type TaskExecutionStatus = 'completed' | 'failed' | 'running'
+
+export const TASK_WEEKDAY_OPTIONS: Array<{
+  value: TaskWeekday
+  label: string
+  shortLabel: string
+}> = [
+  { value: 'monday', label: 'Monday', shortLabel: 'Mon' },
+  { value: 'tuesday', label: 'Tuesday', shortLabel: 'Tue' },
+  { value: 'wednesday', label: 'Wednesday', shortLabel: 'Wed' },
+  { value: 'thursday', label: 'Thursday', shortLabel: 'Thu' },
+  { value: 'friday', label: 'Friday', shortLabel: 'Fri' },
+  { value: 'saturday', label: 'Saturday', shortLabel: 'Sat' },
+  { value: 'sunday', label: 'Sunday', shortLabel: 'Sun' },
+]
 
 export type ScheduledTaskListItem = {
   id: string
   prompt: string
   type: ScheduledTaskType
+  scheduleKind: TaskScheduleKind | null
   intervalMs: number | null
+  weekdays: Array<TaskWeekday>
+  timeOfDay: string | null
+  scheduleTimezone: string | null
   runAt: string | null
   nextRunAt: string | null
   lastRunAt: string | null
@@ -64,4 +91,51 @@ export function formatTaskInterval(intervalMs: number) {
     return `${intervalMs / 3_600_000}h`
   }
   return `${intervalMs / 60_000}m`
+}
+
+function joinWithAnd(items: Array<string>) {
+  if (items.length <= 1) {
+    return items[0] ?? ''
+  }
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`
+  }
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
+}
+
+export function formatTaskTimeOfDay(timeOfDay: string) {
+  const [hour, minute] = timeOfDay.split(':').map(Number)
+  return new Date(Date.UTC(1970, 0, 1, hour, minute)).toLocaleTimeString(
+    'en-US',
+    {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    },
+  )
+}
+
+export function formatTaskWeekdays(weekdays: Array<TaskWeekday>) {
+  return joinWithAnd(
+    TASK_WEEKDAY_OPTIONS.filter((option) => weekdays.includes(option.value)).map(
+      (option) => option.label,
+    ),
+  )
+}
+
+export function formatTaskSchedule(task: ScheduledTaskListItem) {
+  if (
+    task.type === 'recurring' &&
+    task.scheduleKind === 'weekday' &&
+    task.weekdays.length > 0 &&
+    task.timeOfDay
+  ) {
+    return `every ${formatTaskWeekdays(task.weekdays)} at ${formatTaskTimeOfDay(task.timeOfDay)}`
+  }
+
+  if (task.type === 'recurring' && task.intervalMs) {
+    return `every ${formatTaskInterval(task.intervalMs)}`
+  }
+
+  return task.type
 }

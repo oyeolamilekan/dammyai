@@ -43,7 +43,7 @@ Defines the HTML shell, metadata, theme bootstrapping, and global UI wrappers li
 
 - `routes/dashboard.tsx`: dashboard shell with sidebar, header, and auth gate
 - `routes/dashboard/index.tsx`: quick summary view
-- `routes/dashboard/tasks.tsx`: create, list, pause, delete, and inspect scheduled tasks
+- `routes/dashboard/tasks.tsx`: create, list, pause, delete, and inspect scheduled tasks, including fixed-interval and weekday-based recurring schedules
 - `routes/dashboard/research.tsx`: browse research jobs and open generated HTML reports in the themed in-app viewer
 - `routes/dashboard/memories.tsx`: manage core memories, archival memories, and conversations; assistant messages show the model name used to generate them, and persisted web-search tool calls show the search provider label
 - `routes/dashboard/integrations.tsx`: connect OAuth providers and Telegram

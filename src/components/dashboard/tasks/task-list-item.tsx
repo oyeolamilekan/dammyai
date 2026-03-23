@@ -1,5 +1,5 @@
 import { TaskExecutionLogs } from './task-execution-logs'
-import { formatTaskInterval } from './task-utils'
+import { formatTaskSchedule } from './task-utils'
 import type { ScheduledTaskListItem } from './task-utils'
 import { Button } from '~/components/ui/button'
 
@@ -22,9 +22,7 @@ export function TaskListItem({
     <div className="rounded-md border p-3">
       <p className="font-medium">{task.prompt}</p>
       <p className="text-muted-foreground text-xs">
-        {task.type === 'recurring' && task.intervalMs
-          ? `every ${formatTaskInterval(task.intervalMs)}`
-          : task.type}
+        {formatTaskSchedule(task)}
         {' • '}
         {task.enabled ? 'enabled' : 'paused'}
         {task.nextRunAt &&

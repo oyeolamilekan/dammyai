@@ -4,6 +4,55 @@ import { internal } from '../../_generated/api'
 import { parseRunAtIso } from '../toolHelpers'
 import type { AILikeCtx } from '../types'
 
+const taskWeekdaySchema = z.enum([
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+])
+
+const TASK_WEEKDAY_LABELS: Record<
+  z.infer<typeof taskWeekdaySchema>,
+  string
+> = {
+  sunday: 'Sunday',
+  monday: 'Monday',
+  tuesday: 'Tuesday',
+  wednesday: 'Wednesday',
+  thursday: 'Thursday',
+  friday: 'Friday',
+  saturday: 'Saturday',
+}
+
+function joinWithAnd(items: Array<string>) {
+  if (items.length <= 1) {
+    return items[0] ?? ''
+  }
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`
+  }
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
+}
+
+function formatWeekdaySchedule(
+  weekdays: Array<z.infer<typeof taskWeekdaySchema>>,
+  timeOfDay: string,
+) {
+  const time = new Date(`1970-01-01T${timeOfDay}:00Z`).toLocaleTimeString(
+    'en-US',
+    {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    },
+  )
+
+  return `every ${joinWithAnd(weekdays.map((weekday) => TASK_WEEKDAY_LABELS[weekday]))} at ${time}`
+}
+
 /**
  * Purpose: Formats the human-readable repeat interval summary returned after creating a recurring scheduled task.
  * Function type: helper
@@ -39,6 +88,30 @@ function formatScheduledFor(runAtIso?: string) {
   })
 }
 
+function formatTaskScheduleSummary({
+  type,
+  intervalMinutes,
+  runAtIso,
+  weekdays,
+  timeOfDay,
+}: {
+  type: 'one_off' | 'recurring'
+  intervalMinutes?: number
+  runAtIso?: string
+  weekdays?: Array<z.infer<typeof taskWeekdaySchema>>
+  timeOfDay?: string
+}) {
+  if (type === 'one_off') {
+    return formatScheduledFor(runAtIso)
+  }
+
+  if (weekdays?.length && timeOfDay) {
+    return formatWeekdaySchedule(weekdays, timeOfDay)
+  }
+
+  return formatRepeatInfo(intervalMinutes)
+}
+
 /**
  * Purpose: Creates the tool that schedules a one-off or recurring task.
  * Function type: tool factory
@@ -49,7 +122,7 @@ function formatScheduledFor(runAtIso?: string) {
 export function createScheduledTaskTool(ctx: AILikeCtx, userId: string) {
   return tool({
     description:
-      'Create a time-triggered task or reminder. USE when the user says "remind me to…", "at 3pm do…", "every morning send me…", or any request that should execute at a specific future time. For one_off: runAtIso is required. For recurring: intervalMinutes is required, runAtIso is optional (defaults to now + interval). NOT for Todoist tasks (use updateTodo) or calendar events (use scheduleCall).',
+      'Create a time-triggered task or reminder. USE when the user says "remind me to…", "at 3pm do…", "every morning send me…", "every Tuesday…", or "on Mondays and Tuesdays…". For one_off: runAtIso is required. For recurring: use either intervalMinutes for interval-based schedules OR weekdays + timeOfDay for weekday-based schedules. NOT for Todoist tasks (use updateTodo) or calendar events (use scheduleCall).',
     inputSchema: z.object({
       prompt: z.string().min(1).describe(
         'The exact command to execute when this task fires. Write as a direct imperative — e.g. "Search BTC, SOL, ETH prices and top 3 crypto headlines, then send the result via Telegram" or "Check my inbox for unread emails and summarise them". ' +
@@ -73,27 +146,71 @@ export function createScheduledTaskTool(ctx: AILikeCtx, userId: string) {
         .min(1)
         .optional()
         .describe(
-          'Repeat interval in minutes. Required for recurring. Common values: 60 = hourly, 1440 = daily, 10080 = weekly.',
+          'Repeat interval in minutes for interval-based recurring schedules. Required only when the recurring task repeats by a fixed interval. Common values: 60 = hourly, 1440 = daily, 10080 = weekly.',
+        ),
+      weekdays: z
+        .array(taskWeekdaySchema)
+        .min(1)
+        .optional()
+        .describe(
+          'Weekdays for weekday-based recurring schedules. Examples: ["tuesday"] or ["monday", "tuesday"]. Use together with timeOfDay.',
+        ),
+      timeOfDay: z
+        .string()
+        .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+        .optional()
+        .describe(
+          '24-hour time for weekday-based recurring schedules, e.g. "09:00" or "18:30". Use the user timezone unless they explicitly asked for another timezone.',
+        ),
+      scheduleTimezone: z
+        .string()
+        .optional()
+        .describe(
+          'Optional IANA timezone like "Africa/Lagos" or "Europe/London" for weekday schedules. Omit to use the user\'s saved timezone, or UTC if none is set.',
         ),
     }),
-    execute: async ({ prompt, type, runAtIso, intervalMinutes }) => {
+    execute: async ({
+      prompt,
+      type,
+      runAtIso,
+      intervalMinutes,
+      weekdays,
+      timeOfDay,
+      scheduleTimezone,
+    }) => {
       const runAt = parseRunAtIso(runAtIso)
       const intervalMs = intervalMinutes ? intervalMinutes * 60_000 : undefined
+      const userSoul =
+        weekdays?.length && timeOfDay && !scheduleTimezone
+          ? await ctx.runQuery(internal.aiStore.getSoulByUserId, { userId })
+          : null
+
       await ctx.runMutation(internal.aiTools.createScheduledTask, {
         userId,
         prompt,
         type,
         runAt,
         intervalMs,
+        weekdays,
+        timeOfDay,
+        scheduleTimezone:
+          weekdays?.length && timeOfDay
+            ? scheduleTimezone ?? userSoul?.timezone ?? 'UTC'
+            : undefined,
       })
-      const scheduledFor = formatScheduledFor(runAtIso)
-      const repeatInfo = formatRepeatInfo(intervalMinutes)
+      const schedule = formatTaskScheduleSummary({
+        type,
+        intervalMinutes,
+        runAtIso,
+        weekdays,
+        timeOfDay,
+      })
       return JSON.stringify({
         status: 'created',
         taskType: type,
         description: prompt,
-        ...(scheduledFor && { scheduledFor }),
-        ...(repeatInfo && { repeats: repeatInfo }),
+        ...(type === 'one_off' && schedule ? { scheduledFor: schedule } : {}),
+        ...(type === 'recurring' && schedule ? { schedule } : {}),
       })
     },
   })
@@ -141,6 +258,15 @@ export function createListScheduledTasksTool(ctx: AILikeCtx, userId: string) {
           description: task.prompt,
           type: task.type === 'recurring' ? 'recurring' : 'one_off',
           active: task.enabled,
+          schedule: formatTaskScheduleSummary({
+            type: task.type,
+            intervalMinutes: task.intervalMs
+              ? Math.round(task.intervalMs / 60_000)
+              : undefined,
+            runAtIso: task.runAt ? new Date(task.runAt).toISOString() : undefined,
+            weekdays: task.weekdays,
+            timeOfDay: task.timeOfDay ?? undefined,
+          }),
         })),
       })
     },

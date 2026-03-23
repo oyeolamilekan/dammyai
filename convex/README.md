@@ -96,7 +96,7 @@ The app schema merges Better Auth tables from `betterAuth/schema.ts` with DammyA
   - Fields: `systemPrompt`, optional `modelPreference`, optional `searchProvider`, optional `researchModelPreference`, optional `timezone`, optional `researchDepth`, optional `researchBreadth`, timestamps.
   - Common index: `userId`.
 - `scheduledTasks`: one-off and recurring automation tasks.
-  - Fields: `prompt`, `type`, optional scheduling timestamps, optional last-run/result metadata, `enabled`, timestamps.
+  - Fields: `prompt`, `type`, optional interval cadence (`intervalMs`), optional weekday cadence (`weekdays`, `timeOfDay`, `scheduleTimezone`), optional scheduling timestamps, optional last-run/result metadata, `enabled`, timestamps.
   - Common indexes: `userId`, `enabled_nextRunAt`.
 - `taskExecutionLogs`: structured execution history for scheduled tasks.
   - Fields: `taskId`, `startedAt`, optional `completedAt`, `status`, optional `result` / `error`, and detailed `steps`.
@@ -187,6 +187,7 @@ Responsibilities:
 - atomic `claimTaskForExecution` internalMutation to prevent duplicate execution by overlapping cron ticks
 - cron-only execution model (no separate `scheduler.runAt` trigger for one-off tasks)
 - execution via the AI runtime using shared helpers from `lib/taskValidation.ts`
+- supports both fixed-interval recurring schedules and weekday-based recurring schedules with task-level timezone context
 - wraps stored prompts as execute-now commands and runs them with `TASK_SYSTEM_PROMPT` so recurring tasks perform the work instead of rescheduling it
 - result logging
 - optional Telegram delivery
