@@ -1,8 +1,4 @@
-import {
-  Bot,
-  User,
-  Wrench,
-} from 'lucide-react'
+import { Bot, User, Wrench } from 'lucide-react'
 import Markdown from 'react-markdown'
 import type { ConversationMessage } from './types'
 import { Badge } from '~/components/ui/badge'
@@ -75,11 +71,11 @@ export function ConversationItem({ item }: ConversationItemProps) {
       </div>
 
       {isAssistant ? (
-        <div className="prose prose-sm max-w-none break-words dark:prose-invert">
+        <div className="prose prose-sm max-w-none wrap-break-words dark:prose-invert">
           <Markdown>{item.content}</Markdown>
         </div>
       ) : (
-        <p className="break-words text-sm">{item.content}</p>
+        <p className="wrap-break-words text-sm">{item.content}</p>
       )}
 
       {isAssistant && item.modelId && (
