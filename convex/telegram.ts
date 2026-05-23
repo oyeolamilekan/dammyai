@@ -17,11 +17,37 @@ const getEnv = () =>
  * - body: unknown — response payload to serialize
  * - status: number — HTTP status code (default 200)
  */
+const corsHeaders = {
+  'Access-Control-Allow-Headers': 'content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Origin': '*',
+}
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders },
   })
+
+export const telegramCorsPreflight = httpAction(async () => {
+  await Promise.resolve()
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  })
+})
+
+const logTelegram = (event: string, details?: Record<string, unknown>) => {
+  console.log(`[telegram] ${event}`, details ?? {})
+}
+
+const warnTelegram = (event: string, details?: Record<string, unknown>) => {
+  console.warn(`[telegram] ${event}`, details ?? {})
+}
+
+const errorTelegram = (event: string, details?: Record<string, unknown>) => {
+  console.error(`[telegram] ${event}`, details ?? {})
+}
 
 /**
  * Purpose: Extracts the linking code from a /start command.
@@ -53,8 +79,11 @@ export { markdownToTelegramHtml } from './lib/telegramFormat'
 export const sendTelegramMessage = async (chatId: string, text: string) => {
   const env = getEnv()
   const token = env.TELEGRAM_BOT_TOKEN
-  if (!token) return
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+  if (!token) {
+    warnTelegram('send_message_missing_token', { chatId })
+    return
+  }
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -63,6 +92,14 @@ export const sendTelegramMessage = async (chatId: string, text: string) => {
       parse_mode: 'HTML',
     }),
   })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    errorTelegram('send_message_failed', {
+      chatId,
+      status: res.status,
+      body,
+    })
+  }
 }
 
 /**
@@ -150,9 +187,18 @@ export const sendTelegramDocument = async (
 export const webhook = httpAction(async (ctx, request) => {
   const env = getEnv()
   const secret = env.TELEGRAM_WEBHOOK_SECRET
+  logTelegram('webhook_received', {
+    method: request.method,
+    pathname: new URL(request.url).pathname,
+    hasConfiguredSecret: Boolean(secret),
+    hasBotToken: Boolean(env.TELEGRAM_BOT_TOKEN),
+  })
   if (secret) {
     const header = request.headers.get('x-telegram-bot-api-secret-token')
     if (header !== secret) {
+      warnTelegram('webhook_unauthorized', {
+        hasSecretHeader: Boolean(header),
+      })
       return json({ error: 'Unauthorized' }, 401)
     }
   }
@@ -161,13 +207,24 @@ export const webhook = httpAction(async (ctx, request) => {
   try {
     payload = await request.json()
   } catch {
+    warnTelegram('webhook_invalid_json')
     return json({ error: 'Invalid JSON payload' }, 400)
   }
 
   const update = payload as {
     update_id?: number
-    message?: { chat?: { id?: number | string }; text?: string }
+    message?: {
+      chat?: { id?: number | string; type?: string }
+      text?: string
+    }
   }
+  logTelegram('webhook_update_parsed', {
+    updateId: update.update_id,
+    hasMessage: Boolean(update.message),
+    chatType: update.message?.chat?.type,
+    hasText: Boolean(update.message?.text),
+    textLength: update.message?.text?.length ?? 0,
+  })
 
   // Idempotency: skip if this update was already processed
   const updateId = update.update_id
@@ -177,16 +234,23 @@ export const webhook = httpAction(async (ctx, request) => {
       { updateId },
     )
     if (alreadyProcessed) {
+      logTelegram('webhook_duplicate_update', { updateId })
       return json({ ok: true })
     }
     await ctx.runMutation(internal.telegramStore.markUpdateProcessed, {
       updateId,
     })
+    logTelegram('webhook_marked_update_processed', { updateId })
   }
 
   const text = update.message?.text?.trim()
   const chatIdRaw = update.message?.chat?.id
   if (!text || chatIdRaw === undefined) {
+    logTelegram('webhook_ignored_non_text_message', {
+      updateId,
+      hasText: Boolean(text),
+      hasChatId: chatIdRaw !== undefined,
+    })
     return json({ ok: true })
   }
 
@@ -194,6 +258,11 @@ export const webhook = httpAction(async (ctx, request) => {
   const startCode = parseStartCode(text)
 
   if (startCode !== null) {
+    logTelegram('webhook_start_command', {
+      updateId,
+      chatId,
+      hasStartCode: Boolean(startCode),
+    })
     if (!startCode) {
       await sendTelegramMessage(
         chatId,
@@ -210,6 +279,7 @@ export const webhook = httpAction(async (ctx, request) => {
     )
 
     if (!integration) {
+      warnTelegram('webhook_invalid_linking_code', { updateId, chatId })
       await sendTelegramMessage(
         chatId,
         '❌ Invalid or expired linking code. Generate a new one in dashboard.',
@@ -220,6 +290,11 @@ export const webhook = httpAction(async (ctx, request) => {
     await ctx.runMutation(internal.telegramStore.completeTelegramLink, {
       integrationId: integration._id,
       chatId,
+    })
+    logTelegram('webhook_link_completed', {
+      updateId,
+      chatId,
+      integrationId: integration._id,
     })
     await sendTelegramMessage(
       chatId,
@@ -236,6 +311,7 @@ export const webhook = httpAction(async (ctx, request) => {
   )
 
   if (!integration) {
+    warnTelegram('webhook_unlinked_chat', { updateId, chatId })
     await sendTelegramMessage(
       chatId,
       '🔗 Telegram not linked. Open dashboard and send /start <code> here.',
@@ -245,14 +321,29 @@ export const webhook = httpAction(async (ctx, request) => {
 
   const stopTyping = keepTyping(chatId)
   try {
+    logTelegram('webhook_ai_prompt_started', {
+      updateId,
+      chatId,
+      userId: integration.userId,
+    })
     const reply = await executeAIPromptImpl(ctx, {
       userId: integration.userId,
       prompt: text,
     })
     stopTyping()
+    logTelegram('webhook_ai_prompt_completed', {
+      updateId,
+      chatId,
+      replyLength: reply.length,
+    })
     await sendTelegramMessage(chatId, reply)
   } catch (error) {
     stopTyping()
+    errorTelegram('webhook_ai_prompt_failed', {
+      updateId,
+      chatId,
+      error,
+    })
     await sendTelegramMessage(
       chatId,
       '⚠️ Something went wrong. Please try again.',
@@ -268,13 +359,21 @@ export const webhook = httpAction(async (ctx, request) => {
  * Function type: httpAction (POST only)
  */
 export const registerWebhook = httpAction(async (_ctx, request) => {
+  logTelegram('register_webhook_received', {
+    method: request.method,
+    pathname: new URL(request.url).pathname,
+  })
   if (request.method !== 'POST') {
+    warnTelegram('register_webhook_method_not_allowed', {
+      method: request.method,
+    })
     return json({ error: 'Method Not Allowed' }, 405)
   }
 
   const env = getEnv()
   const token = env.TELEGRAM_BOT_TOKEN
   if (!token) {
+    errorTelegram('register_webhook_missing_token')
     return json({ error: 'Missing TELEGRAM_BOT_TOKEN' }, 500)
   }
 
@@ -284,6 +383,10 @@ export const registerWebhook = httpAction(async (_ctx, request) => {
     env.TELEGRAM_WEBHOOK_URL ?? env.CONVEX_SITE_URL ?? requestOrigin
 
   const url = `${baseUrl.replace(/\/$/, '')}/api/telegram/webhook`
+  logTelegram('register_webhook_calling_telegram', {
+    webhookUrl: url,
+    hasSecret: Boolean(env.TELEGRAM_WEBHOOK_SECRET),
+  })
   const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -294,6 +397,14 @@ export const registerWebhook = httpAction(async (_ctx, request) => {
   })
 
   const data = await res.json()
+  logTelegram(
+    res.ok ? 'register_webhook_succeeded' : 'register_webhook_failed',
+    {
+      status: res.status,
+      webhookUrl: url,
+      telegram: data,
+    },
+  )
   return json({ webhookUrl: url, telegram: data }, res.ok ? 200 : 500)
 })
 

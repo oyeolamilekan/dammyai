@@ -64,7 +64,9 @@ function IntegrationsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [dialogState, setDialogState] = useState(initialConnectorDialogState)
 
-  const integrationRecords = integrations as Array<IntegrationRecord> | undefined
+  const integrationRecords = integrations as
+    | Array<IntegrationRecord>
+    | undefined
 
   useEffect(() => {
     if (success) toast.success(`${success} connected successfully`)
@@ -129,9 +131,20 @@ function IntegrationsPage() {
 
   const generateTelegramRegistration = async () => {
     try {
-      await fetch(`${CONVEX_SITE_URL}/api/telegram/register-webhook`, {
-        method: 'POST',
-      }).catch(() => undefined)
+      const webhookResponse = await fetch(
+        `${CONVEX_SITE_URL}/api/telegram/register-webhook`,
+        {
+          method: 'POST',
+        },
+      )
+
+      if (!webhookResponse.ok) {
+        const errorText = await webhookResponse.text().catch(() => '')
+        throw new Error(
+          errorText ||
+            `Telegram webhook registration failed (${webhookResponse.status})`,
+        )
+      }
 
       const result = await createTelegramLink()
       updateDialogState({

@@ -1,6 +1,11 @@
 import { httpRouter } from 'convex/server'
 import { authComponent, createAuth } from './betterAuth/auth'
-import { registerWebhook, unregisterWebhook, webhook } from './telegram'
+import {
+  registerWebhook,
+  telegramCorsPreflight,
+  unregisterWebhook,
+  webhook,
+} from './telegram'
 import { gmailAuth, gmailCallback } from './oauth/gmail'
 import {
   googleCalendarAuth,
@@ -21,6 +26,11 @@ http.route({
   path: '/api/telegram/register-webhook',
   method: 'POST',
   handler: registerWebhook,
+})
+http.route({
+  path: '/api/telegram/register-webhook',
+  method: 'OPTIONS',
+  handler: telegramCorsPreflight,
 })
 http.route({
   path: '/api/telegram/unregister-webhook',
