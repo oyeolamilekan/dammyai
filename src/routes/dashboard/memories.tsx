@@ -7,6 +7,7 @@ import {
   Bot,
   Brain,
   MessageSquare,
+  Trash2,
   User,
   Wrench,
 } from 'lucide-react'
@@ -15,6 +16,16 @@ import { api } from '../../../convex/_generated/api'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent } from '~/components/ui/card'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Skeleton } from '~/components/ui/skeleton'
@@ -94,9 +105,12 @@ function MemoriesPage() {
   const upsertCore = useMutation(convexApi.memories.createOrUpdateCoreMemory)
   const deleteCore = useMutation(convexApi.memories.deleteCoreMemory)
   const deleteArchival = useMutation(convexApi.memories.deleteArchivalMemory)
+  const deleteAllMemories = useMutation(convexApi.memories.deleteAllMemories)
 
   const [key, setKey] = useState('')
   const [value, setValue] = useState('')
+  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false)
+  const [isDeletingAll, setIsDeletingAll] = useState(false)
 
   const addCoreMemory = async () => {
     try {
@@ -109,19 +123,77 @@ function MemoriesPage() {
     }
   }
 
+  const hasMemories =
+    (core?.length ?? 0) > 0 ||
+    (archival?.total ?? 0) > 0 ||
+    (conversations?.total ?? 0) > 0
+
+  const deleteEveryMemory = async () => {
+    setIsDeletingAll(true)
+    try {
+      await deleteAllMemories({})
+      setArchivalPage(1)
+      setConvoPage(1)
+      setDeleteAllDialogOpen(false)
+      toast.success('All memories deleted')
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete memories',
+      )
+    } finally {
+      setIsDeletingAll(false)
+    }
+  }
+
   return (
     <Tabs defaultValue="core" className="space-y-4">
-      <TabsList>
-        <TabsTrigger value="core">
-          <Brain className="size-4" /> Core
-        </TabsTrigger>
-        <TabsTrigger value="archival">
-          <Archive className="size-4" /> Archival
-        </TabsTrigger>
-        <TabsTrigger value="conversations">
-          <MessageSquare className="size-4" /> Conversations
-        </TabsTrigger>
-      </TabsList>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <TabsList>
+          <TabsTrigger value="core">
+            <Brain className="size-4" /> Core
+          </TabsTrigger>
+          <TabsTrigger value="archival">
+            <Archive className="size-4" /> Archival
+          </TabsTrigger>
+          <TabsTrigger value="conversations">
+            <MessageSquare className="size-4" /> Conversations
+          </TabsTrigger>
+        </TabsList>
+        <Dialog
+          open={deleteAllDialogOpen}
+          onOpenChange={setDeleteAllDialogOpen}
+        >
+          <DialogTrigger asChild>
+            <Button variant="destructive" disabled={!hasMemories}>
+              <Trash2 className="size-4" />
+              Delete all memories
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete all memories?</DialogTitle>
+              <DialogDescription>
+                This permanently deletes your core memories, archival memories,
+                and conversation history. This cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline" disabled={isDeletingAll}>
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button
+                variant="destructive"
+                disabled={isDeletingAll}
+                onClick={() => void deleteEveryMemory()}
+              >
+                {isDeletingAll ? 'Deleting...' : 'Delete all memories'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       <TabsContent value="core">
         <Card>

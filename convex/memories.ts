@@ -187,3 +187,50 @@ export const deleteArchivalMemory = mutation({
     return { success: true }
   },
 })
+
+/**
+ * Purpose: Deletes all memory-related data owned by the signed-in user.
+ * Function type: mutation
+ * Args: none
+ */
+export const deleteAllMemories = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx)
+    const coreRows = await ctx.db
+      .query('coreMemories')
+      .withIndex('userId', (q) => q.eq('userId', userId))
+      .collect()
+    const archivalRows = await ctx.db
+      .query('archivalMemories')
+      .withIndex('userId', (q) => q.eq('userId', userId))
+      .collect()
+    const messageRows = await ctx.db
+      .query('messages')
+      .withIndex('userId_createdAt', (q) => q.eq('userId', userId))
+      .collect()
+    const legacyRows = await ctx.db
+      .query('memories')
+      .withIndex('userId', (q) => q.eq('userId', userId))
+      .collect()
+
+    await Promise.all([
+      ...coreRows.map((row) => ctx.db.delete('coreMemories', row._id)),
+      ...archivalRows.map((row) =>
+        ctx.db.delete('archivalMemories', row._id),
+      ),
+      ...messageRows.map((row) => ctx.db.delete('messages', row._id)),
+      ...legacyRows.map((row) => ctx.db.delete('memories', row._id)),
+    ])
+
+    return {
+      success: true,
+      deleted: {
+        core: coreRows.length,
+        archival: archivalRows.length,
+        conversations: messageRows.length,
+        legacy: legacyRows.length,
+      },
+    }
+  },
+})
