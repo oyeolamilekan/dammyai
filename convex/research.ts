@@ -68,6 +68,47 @@ export const getResearchReport = query({
 })
 
 /**
+ * Purpose: Deletes one research job owned by the current user.
+ * Function type: mutation
+ * Args:
+ * - id: v.id('backgroundResearch')
+ */
+export const deleteResearch = mutation({
+  args: { id: v.id('backgroundResearch') },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx)
+    const row = await ctx.db.get('backgroundResearch', args.id)
+    if (!row || row.userId !== userId) {
+      throw new Error('Not found')
+    }
+    await ctx.db.delete('backgroundResearch', args.id)
+    return { success: true }
+  },
+})
+
+/**
+ * Purpose: Deletes all research jobs owned by the current user.
+ * Function type: mutation
+ * Args: none
+ */
+export const deleteAllResearch = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx)
+    const rows = await ctx.db
+      .query('backgroundResearch')
+      .withIndex('userId_createdAt', (q) => q.eq('userId', userId))
+      .collect()
+
+    await Promise.all(
+      rows.map((row) => ctx.db.delete('backgroundResearch', row._id)),
+    )
+
+    return { success: true, deleted: rows.length }
+  },
+})
+
+/**
  * Purpose: Creates a new background research job and schedules it for processing.
  * Function type: mutation
  * Args:
@@ -308,6 +349,8 @@ async function sendResearchToTelegram(
 export const markResearchRunning = internalMutation({
   args: { id: v.id('backgroundResearch') },
   handler: async (ctx, args) => {
+    const row = await ctx.db.get('backgroundResearch', args.id)
+    if (!row) return
     await ctx.db.patch('backgroundResearch', args.id, {
       status: 'running',
     })
@@ -353,6 +396,8 @@ export const markResearchCompleted = internalMutation({
     searchProvider: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const row = await ctx.db.get('backgroundResearch', args.id)
+    if (!row) return
     await ctx.db.patch('backgroundResearch', args.id, {
       status: 'completed',
       result: args.result,
@@ -374,6 +419,8 @@ export const markResearchCompleted = internalMutation({
 export const markResearchFailed = internalMutation({
   args: { id: v.id('backgroundResearch'), error: v.string() },
   handler: async (ctx, args) => {
+    const row = await ctx.db.get('backgroundResearch', args.id)
+    if (!row) return
     await ctx.db.patch('backgroundResearch', args.id, {
       status: 'failed',
       error: args.error,

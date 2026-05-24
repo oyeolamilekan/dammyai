@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { CheckpointTimeline } from './checkpoint-timeline'
 import { StatusBadge } from './status-badge'
 import type { ResearchJob } from './types'
@@ -7,11 +8,13 @@ import { Button } from '~/components/ui/button'
 type ResearchJobCardProps = {
   job: ResearchJob
   onViewReport: (job: ResearchJob) => void
+  onDelete: (job: ResearchJob) => void
 }
 
 export function ResearchJobCard({
   job,
   onViewReport,
+  onDelete,
 }: ResearchJobCardProps) {
   const [showSteps, setShowSteps] = useState(false)
 
@@ -19,7 +22,18 @@ export function ResearchJobCard({
     <div className="space-y-3 rounded-lg border p-4">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-medium leading-snug">{job.prompt}</p>
-        <StatusBadge status={job.status} />
+        <div className="flex shrink-0 items-center gap-2">
+          <StatusBadge status={job.status} />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => onDelete(job)}
+            aria-label="Delete research record"
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
       </div>
 
       {(job.status === 'running' || job.status === 'pending') &&

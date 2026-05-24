@@ -39,6 +39,12 @@ export const Route = createFileRoute('/dashboard/memories')({
 
 const PAGE_SIZE = 20
 
+type DeleteMemoryTarget = {
+  id: string
+  type: 'core' | 'archival'
+  label: string
+}
+
 function ListSkeleton({ count = 3 }: { count?: number }) {
   return (
     <div className="space-y-2">
@@ -109,6 +115,10 @@ function MemoriesPage() {
 
   const [key, setKey] = useState('')
   const [value, setValue] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<DeleteMemoryTarget | null>(
+    null,
+  )
+  const [isDeletingMemory, setIsDeletingMemory] = useState(false)
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false)
   const [isDeletingAll, setIsDeletingAll] = useState(false)
 
@@ -142,6 +152,27 @@ function MemoriesPage() {
       )
     } finally {
       setIsDeletingAll(false)
+    }
+  }
+
+  const deleteSelectedMemory = async () => {
+    if (!deleteTarget) {
+      return
+    }
+
+    setIsDeletingMemory(true)
+    try {
+      if (deleteTarget.type === 'core') {
+        await deleteCore({ id: deleteTarget.id })
+      } else {
+        await deleteArchival({ id: deleteTarget.id })
+      }
+      setDeleteTarget(null)
+      toast.success('Memory deleted')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Delete failed')
+    } finally {
+      setIsDeletingMemory(false)
     }
   }
 
@@ -245,17 +276,13 @@ function MemoriesPage() {
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => {
-                        void deleteCore({ id: item.id })
-                          .then(() => toast.success('Deleted'))
-                          .catch((error) => {
-                            toast.error(
-                              error instanceof Error
-                                ? error.message
-                                : 'Delete failed',
-                            )
-                          })
-                      }}
+                      onClick={() =>
+                        setDeleteTarget({
+                          id: item.id,
+                          type: 'core',
+                          label: `${item.key}: ${item.value}`,
+                        })
+                      }
                     >
                       Delete
                     </Button>
@@ -286,15 +313,13 @@ function MemoriesPage() {
                   <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() => {
-                      void deleteArchival({ id: item.id }).catch((error) => {
-                        toast.error(
-                          error instanceof Error
-                            ? error.message
-                            : 'Delete failed',
-                        )
+                    onClick={() =>
+                      setDeleteTarget({
+                        id: item.id,
+                        type: 'archival',
+                        label: item.content,
                       })
-                    }}
+                    }
                   >
                     Delete
                   </Button>
@@ -409,6 +434,43 @@ function MemoriesPage() {
           </CardContent>
         </Card>
       </TabsContent>
+
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null)
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete memory?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes this memory. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteTarget && (
+            <p className="line-clamp-3 rounded-md border bg-muted/30 p-3 text-sm">
+              {deleteTarget.label}
+            </p>
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={isDeletingMemory}>
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              disabled={isDeletingMemory}
+              onClick={() => void deleteSelectedMemory()}
+            >
+              {isDeletingMemory ? 'Deleting...' : 'Delete memory'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Tabs>
   )
 }
