@@ -6,7 +6,7 @@ It combines:
 
 - real-time Convex queries for dashboard data
 - Better Auth for sign-in and session handling
-- an AI agent powered by the Vercel AI SDK
+- an AI agent powered by the Vercel AI SDK routed through an AI Gateway for multi-provider model access
 - background workflows for scheduled tasks and research
 - integrations with Telegram, Gmail, Google Calendar, Todoist, Notion, and provider-aware web search
 
@@ -15,7 +15,7 @@ It combines:
 - Frontend: React 19, TanStack Start, TanStack Router, TanStack Query
 - Backend: Convex
 - Auth: Better Auth + `@convex-dev/better-auth`
-- AI: `ai` SDK + OpenAI-compatible gateway models
+- AI: Vercel AI SDK (`ai` v6) + AI Gateway for multi-provider model routing (OpenAI, Anthropic, etc.)
 - Styling: Tailwind CSS + shadcn/ui
 - Runtime/tooling: Bun, Vite, TypeScript
 
@@ -55,6 +55,8 @@ The backend lives in `convex/` and is split by capability.
 - `convex/http.ts` exposes auth, Telegram, and OAuth callback routes
 - `convex/aiActions.ts` is the main AI execution entrypoint
 - `convex/ai/tools.ts` composes the runtime toolset from grouped factories in `convex/ai/toolDefinitions/`
+- `convex/ai/config.ts` normalizes model IDs into the `provider/model` format expected by the AI Gateway (e.g. `openai/gpt-4o-mini`), provides the default model fallback, and builds the runtime system prompt from the base prompt, core memories, and timezone
+- `convex/ai/engine.ts` is the main AI execution pipeline that loads user context, assembles the system prompt, calls `generateText` from the AI SDK with tools and step limiting, and persists the assistant response with auto-extracted memories
 - `convex/ai/toolDefinitions/` houses focused tool factories for memory, integrations, research, and scheduled tasks
 - `convex/ai/toolHelpers.ts` holds shared formatting and parsing helpers used across tool definitions
 - `convex/ai/prompts.ts` centralizes system prompts, memory instructions, and task execution prompts
@@ -90,7 +92,7 @@ For backend module details, see [`convex/README.md`](./convex/README.md).
 2. `convex/aiActions.ts` loads soul settings, conversation history (last 20 messages), and core memories.
 3. The system prompt is assembled from the soul config (including timezone when set), centralized prompts in `convex/ai/prompts.ts`, and core memories. A configured timezone injects explicit timezone instructions into the prompt; when absent, UTC is used with a one-time suggestion to configure timezone in Settings.
 4. `MEMORY_INSTRUCTIONS` in `convex/ai/prompts.ts` automatically routes broad or complex requests into `startBackgroundResearch`, while single-fact lookups use a single `webSearch` call.
-5. The AI model is called with tool access from `convex/ai/tools.ts`, which composes grouped tool factories from `convex/ai/toolDefinitions/`.
+5. The AI model is called via the Vercel AI SDK (`generateText`), which handles tool orchestration, multi-step execution (capped at 8 via `stepCountIs`), and step callbacks for persisting tool results. Tool access is composed from grouped factories in `convex/ai/toolDefinitions/` and wired together via `convex/ai/tools.ts`.
 6. Search tools use the user's configured search provider from soul settings (`exa` or `tavily`).
 7. If the query requires research, the model calls `startBackgroundResearch` once per invocation, enforced by a dedup guard in `createAgentTools`.
 8. Messages, web-search provider metadata, and auto-extracted memories are persisted back into Convex.
@@ -266,7 +268,7 @@ The app depends on Convex deployment configuration and multiple provider credent
 
 - Convex frontend/backend URLs
 - Better Auth configuration
-- AI gateway/model credentials
+- AI Gateway credentials (`AI_GATEWAY_API_KEY`, `AI_GATEWAY_MODEL`, `AI_GATEWAY_MEMORY_MODEL`)
 - `PDF_API_BASE_URL` for the standalone HTML-to-PDF service
 - Telegram bot credentials
 - OAuth credentials for Gmail, Google Calendar, Todoist, and Notion
