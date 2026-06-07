@@ -10,6 +10,10 @@ It combines:
 - background workflows for scheduled tasks and research
 - integrations with Telegram, Gmail, Google Calendar, Todoist, Notion, and provider-aware web search
 
+## Getting started
+
+See **[SETUP.md](./SETUP.md)** for a step-by-step guide to running DammyAI locally.
+
 ## Tech stack
 
 - Frontend: React 19, TanStack Start, TanStack Router, TanStack Query
